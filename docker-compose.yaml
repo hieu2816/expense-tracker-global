@@ -1,0 +1,20 @@
+version: '3.8'
+
+services:
+  database:
+    image: postgres:16
+    container_name: expense-db
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=MinhHieu2816@
+      - POSTGRES_DB=postgres
+    volumes:
+      - expense_data:/var/lib/postgresql/data
+    restart: always
+
+# declare volume for Docker understand this is old volume that has been created
+volumes:
+  expense_data:
+    external: true # this mean the database is created manually before, find and use it again
