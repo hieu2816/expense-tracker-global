@@ -50,7 +50,7 @@ public class BankLinkingService {
 
     // Start the bank linking process
     @Transactional
-    public LinkBankResponse startLinking(User user, String institutionId) {
+    public LinkBankResponse startLinking(User user, String institutionId, String countryCode) {
         log.info("Starting bank linking for user {} with institution {}", user.getEmail(), institutionId);
         // 1. Generate unique reference (user_id + timestamp)
         String reference = "user_" + user.getId() + "_" + System.currentTimeMillis();
@@ -67,7 +67,7 @@ public class BankLinkingService {
         String institutionName = null;
         String institutionLogo = null;
 
-        List<GCInstitution> institutions = goCardlessService.getInstitutions("GB");
+        List<GCInstitution> institutions = goCardlessService.getInstitutions(countryCode != null ? countryCode : "GB");
         for (GCInstitution institution : institutions) {
             if (institution.getId().equals(institutionId)) {
                 institutionName = institution.getName();

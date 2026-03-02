@@ -44,7 +44,7 @@ public class BankController {
         log.info("User {} starting bank linking for institution: {}",
                 user.getUsername(), linkBankRequest.getInstitutionId());
 
-        LinkBankResponse response = bankLinkingService.startLinking(user, linkBankRequest.getInstitutionId());
+        LinkBankResponse response = bankLinkingService.startLinking(user, linkBankRequest.getInstitutionId(), linkBankRequest.getCountryCode());
         return ResponseEntity.ok(response);
     }
 

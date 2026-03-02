@@ -8,4 +8,7 @@ import lombok.Data;
 public class LinkBankRequest {
     @NotBlank(message = "Institution ID is required")
     private String institutionId;
+
+    // Country code for institution lookup (default: GB)
+    private String countryCode;
 }

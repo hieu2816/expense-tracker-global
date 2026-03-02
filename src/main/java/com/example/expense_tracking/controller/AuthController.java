@@ -5,6 +5,7 @@ import com.example.expense_tracking.dto.LoginResponse;
 import com.example.expense_tracking.dto.RegisterRequest;
 import com.example.expense_tracking.entity.User;
 import com.example.expense_tracking.service.AuthService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -19,7 +20,7 @@ public class AuthController {
     private final AuthService authService;
 
     @PostMapping("/register")
-    public ResponseEntity<?> register(@RequestBody RegisterRequest registerRequest) {
+    public ResponseEntity<?> register(@Valid @RequestBody RegisterRequest registerRequest) {
         try {
             User registeredUser = authService.register(registerRequest);
             return ResponseEntity.ok("Account registered successfully: " + registeredUser.getEmail());
