@@ -7,6 +7,28 @@ jobs:
   test:
     name: Build & Test
     runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: postgres
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    env:
+      DB_URL: jdbc:postgresql://localhost:5432/postgres
+      DB_USERNAME: postgres
+      DB_PASSWORD: postgres
+      JWT_SECRET: test-secret-key-for-ci-only-not-production
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
