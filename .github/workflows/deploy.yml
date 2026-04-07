@@ -67,9 +67,11 @@ jobs:
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
-            cd ~/expense-tracking-global
+            cd ~/expense-tracker-global
             git pull origin main
-            echo '${{ secrets.ENV_FILE }}' > .env
+            cat << 'ENVEOF' > .env
+            ${{ secrets.ENV_FILE }}
+            ENVEOF
             docker compose build
             docker compose up -d
             docker image prune -f
