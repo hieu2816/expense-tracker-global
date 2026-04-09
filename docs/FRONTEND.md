@@ -1,35 +1,25 @@
-# Frontend Architecture & Implementation
+# Expense Tracking — Frontend Architecture
 
-> **Audience:** Developers working on the frontend  
-> **Last Updated:** 2026-03-08  
-> **Stack:** React 19 · Vite 7 · Ant Design 6 · Recharts 3 · Axios · React Router 7
-
----
-
-## Overview
-
-The frontend is a React **Single Page Application (SPA)** that communicates with the Spring Boot backend via REST API. It provides:
-
-- **Authentication** — Login/Register forms with JWT token management
-- **Dashboard** — Summary stats (income/expense/balance), spending pie chart, recent transactions
-- **Transaction Management** — Full CRUD with filtering, pagination, and CSV export
-- **Category Management** — CRUD with emoji icon support
-- **Bank Account Management** — Link/sync/unlink banks via GoCardless
-- **Profile** — Edit name, change password
+> **Audience:** Developers working on the frontend
+> **Last Updated:** 2026-04-09
+> **Stack:** React 19 · Vite 7 · Ant Design 6 · Recharts 3 · Axios · React Router 7 · dayjs
 
 ---
 
 ## Why These Technologies?
 
-| Choice | Reason |
-|--------|--------|
-| **React 19** | Component-based, massive ecosystem, hot module replacement via Vite |
-| **Vite 7** | Near-instant startup and HMR (vs. Webpack's slow builds) |
-| **Ant Design 6** | Professional UI component library — tables, forms, modals, notifications out of the box |
-| **Recharts 3** | React-native charting library, composable, works well with Ant Design |
-| **Axios** | HTTP client with interceptor support — essential for JWT token injection |
-| **React Router 7** | Client-side routing with nested layouts and protected routes |
-| **dayjs** | Lightweight date manipulation (Ant Design's DatePicker depends on it) |
+| Choice | Why |
+|--------|-----|
+| **React 19** | Component-based, massive ecosystem, stable hooks, excellent TypeScript support |
+| **Vite 7** | Near-instant cold start and HMR — under 100ms vs Webpack's 10–30 seconds |
+| **Ant Design 6** | Production-ready tables, forms, modals, notifications — consistent design out of the box |
+| **Ant Design theming** | `ConfigProvider` overrides primary color globally — brand customization without CSS overrides |
+| **Recharts 3** | Composable SVG charts built for React, tree-shakeable, no canvas dependency |
+| **Axios** | Interceptors centralize auth — every request automatically includes the JWT without repetitive code |
+| **React Router 7** | Nested routes with `<Outlet>` — sidebar layout renders child pages without prop drilling |
+| **Context API** | Auth state is the only global state needed; Redux would add unnecessary boilerplate |
+| **dayjs** | Ant Design's DatePicker depends on it; smaller than Moment.js (2KB vs 67KB) |
+| **Intl.NumberFormat** | Browser-native currency formatting — no extra library needed |
 
 ---
 
@@ -37,53 +27,55 @@ The frontend is a React **Single Page Application (SPA)** that communicates with
 
 ```
 frontend/
-├── index.html                    # Entry point — loads /src/main.jsx
-├── package.json                  # Dependencies and scripts
-├── vite.config.js                # Vite + React plugin configuration
+├── index.html                      # Entry point
+├── package.json                    # React 19, Ant Design 6, Recharts 3, Axios, React Router 7
+├── vite.config.js                  # Vite + @vitejs/plugin-react, port 5173
+├── .env.development               # VITE_API_URL=http://localhost:8080/api
+├── .env.production                # VITE_API_URL=/api  (relative — proxied by Nginx)
 │
 └── src/
-    ├── main.jsx                  # ReactDOM.createRoot() — renders <App />
-    ├── App.jsx                   # Router + Ant Design theme + AuthProvider
-    ├── index.css                 # Design system — all CSS variables and styles
+    ├── main.jsx                   # ReactDOM.createRoot() → renders <App />
+    ├── App.jsx                   # BrowserRouter + ConfigProvider (theme) + AuthProvider + Routes
+    ├── index.css                 # Design system: CSS variables, sidebar, cards, auth pages, typography
     │
     ├── api/
-    │   └── axios.js              # Axios instance with JWT interceptor
+    │   └── axios.js              # Axios instance: JWT interceptor + 401 auto-logout
     │
     ├── contexts/
-    │   └── AuthContext.jsx        # React Context for auth state (user, login, logout)
+    │   └── AuthContext.jsx        # Auth state: user, loading, isAuthenticated, login/logout
     │
     ├── components/
-    │   ├── AppLayout.jsx          # Sidebar + header shell (wraps all protected pages)
-    │   └── ProtectedRoute.jsx     # Redirects to /login if not authenticated
+    │   ├── AppLayout.jsx         # Collapsible sidebar + sticky header + <Outlet />
+    │   └── ProtectedRoute.jsx    # Auth guard: spinner → redirect to /login
     │
     └── pages/
-        ├── Login.jsx              # Email + password form
-        ├── Register.jsx           # Name + email + password + confirm form
-        ├── Dashboard.jsx          # Stat cards, pie chart, recent transactions
+        ├── Login.jsx              # Email + password → POST /auth/login
+        ├── Register.jsx           # Name + email + password + confirm → POST /auth/register
+        ├── Dashboard.jsx          # Stats + pie chart + recent transactions
         ├── Transactions.jsx       # Filterable table + CRUD modal + CSV export
         ├── Categories.jsx         # Category table + add/edit modal
-        ├── BankAccounts.jsx       # Bank cards, link flow, sync, history
-        └── Profile.jsx            # Edit name + change password forms
+        ├── BankAccounts.jsx       # Bank cards + link modal + sync + history + unlink
+        └── Profile.jsx           # Edit name + change password
 ```
 
 ---
 
 ## How It Works
 
-### 1. Entry Point Flow
+### Component Tree
 
 ```
-index.html
-  └── loads /src/main.jsx
-        └── renders <App />
-              └── <ConfigProvider>        ← Ant Design green theme (#0D9F6E)
-                    └── <BrowserRouter>   ← React Router
-                          └── <AuthProvider>  ← Auth context (JWT state)
-                                └── <Routes>
-                                      ├── /login     → <Login />
-                                      ├── /register  → <Register />
-                                      └── / (protected)
-                                            └── <AppLayout>  ← Sidebar + Header
+App.jsx
+  └── <ConfigProvider theme={green}>           ← Primary color: #0D9F6E
+        └── <BrowserRouter>
+              └── <AuthProvider>
+                    └── <Routes>
+                          ├── /login    → <Login />
+                          ├── /register → <Register />
+                          └── / (protected)
+                                └── <ProtectedRoute>
+                                      └── <AppLayout>          ← Sidebar + Header
+                                            └── <Outlet />        ← Child route renders here
                                                   ├── /           → <Dashboard />
                                                   ├── /transactions → <Transactions />
                                                   ├── /categories  → <Categories />
@@ -91,232 +83,216 @@ index.html
                                                   └── /profile     → <Profile />
 ```
 
-### 2. Authentication Flow
+### Why `<Outlet>`?
+
+React Router's `<Outlet>` renders the active child route in place — the sidebar and header are rendered once and never unmount. Without it, every navigation would re-render the entire layout, causing flicker and losing sidebar state (e.g. collapsed/expanded).
+
+---
+
+## Authentication Flow
 
 ```
-User opens app
-  → AuthContext checks localStorage for JWT token
-  → Token exists? → Call GET /api/user/profile to validate
-    → Valid → set user state, show dashboard
-    → Invalid/expired → clear token, redirect to /login
-  → No token → show /login page
+┌─────────────────────────────────────────────────────────────────┐
+│ App mounts                                                          │
+│   → AuthContext.loadProfile() called on mount                      │
+│     → Token in localStorage?                                      │
+│       YES → GET /user/profile to validate token                   │
+│         200 OK → setUser(data) → setLoading(false) → show app    │
+│         401     → localStorage.removeItem('token') → show /login  │
+│       NO  → setLoading(false) → show /login                       │
+└─────────────────────────────────────────────────────────────────┘
 
 Login:
-  → POST /api/auth/login { email, password }
-  → Backend returns { token, fullName }
-  → Store token in localStorage
-  → Load user profile → set auth state → redirect to /
+  POST /auth/login { email, password }
+    → 200 OK → store token in localStorage → GET /user/profile → navigate('/')
 
 Register:
-  → POST /api/auth/register { email, password, fullName }
-  → Success → redirect to /login with success message
+  POST /auth/register { email, password, fullName }
+    → 200 OK → message.success() → navigate('/login')
 
 Logout:
-  → Clear localStorage (token + user)
-  → Reset auth state → redirect to /login
+  localStorage.removeItem('token') → setUser(null) → navigate('/login')
 ```
 
-### 3. API Client (axios.js)
+### Why store the token in localStorage?
 
-The Axios instance is the bridge between frontend and backend:
+JWT is stateless — the server doesn't track sessions. The browser must persist the token between page reloads. `sessionStorage` is cleared on tab close; `localStorage` persists until explicitly removed.
+
+### Why validate the token on mount?
+
+The token could have expired or been revoked. Calling `GET /user/profile` confirms it's still valid. If the backend returns 401, the frontend clears the token and redirects to login.
+
+---
+
+## API Client (axios.js)
 
 ```javascript
-// Base URL: http://localhost:8080/api
-// Every request automatically includes the JWT token:
-//   Authorization: Bearer <token>
+const api = axios.create({
+  baseURL: import.meta.env.VITE_API_URL,  // .env.production: /api
+});
 
-// Request interceptor:
-//   → Reads token from localStorage
-//   → Attaches to Authorization header
+// 1. Attach JWT on every request
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem('token');
+  if (token) config.headers.Authorization = `Bearer ${token}`;
+  return config;
+});
 
-// Response interceptor:
-//   → If 401 (Unauthorized) → token expired
-//   → Auto-clear localStorage → redirect to /login
+// 2. Auto-logout on 401
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      localStorage.removeItem('token');
+      window.location.href = '/login';  // Hard redirect to reset all state
+    }
+    return Promise.reject(error);
+  }
+);
 ```
 
-**Why interceptors?** Without them, every API call would need manual token handling. The interceptor centralizes this — write `api.get('/transactions')` and auth is automatic.
+### Why hard redirect (`window.location.href`) on 401?
 
-### 4. Protected Routes
+React Router's `navigate()` is a soft redirect — it only changes the URL. But Axios's 401 interceptor fires **after** a page has already loaded with bad data. A hard redirect ensures the browser fetches `/login` fresh, clearing any stale component state.
 
-`ProtectedRoute.jsx` wraps all authenticated pages:
-- If `loading` → shows spinner (waiting for auth check)
-- If `!isAuthenticated` → redirects to `/login`
-- If authenticated → renders the child component
+### Why interceptors and not a wrapper function?
 
-### 5. Layout (AppLayout.jsx)
+Without interceptors, every API call would need to manually attach the token:
+```javascript
+// Without interceptor — repetitive, error-prone
+api.get('/transactions', {
+  headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+})
 
-The sidebar + header layout wraps all protected pages:
-
-```
-┌──────────────────────────────────────────────┐
-│  Header (user name, logout button)           │
-├──────────┬───────────────────────────────────┤
-│          │                                   │
-│ Sidebar  │         Page Content              │
-│          │         (via <Outlet />)           │
-│ Dashboard│                                   │
-│ Txns     │                                   │
-│ Cats     │                                   │
-│ Banks    │                                   │
-│ Profile  │                                   │
-│          │                                   │
-└──────────┴───────────────────────────────────┘
+// With interceptor — clean
+api.get('/transactions')
 ```
 
-Uses React Router's `<Outlet />` to render the active child route inside the layout.
+---
+
+## Protected Routes
+
+```javascript
+const ProtectedRoute = ({ children }) => {
+  const { isAuthenticated, loading } = useAuth();
+
+  if (loading) return <Spin size="large" />;     // Auth check in progress
+  if (!isAuthenticated) return <Navigate to="/login" replace />;  // Not logged in
+  return children;                                  // Authenticated
+};
+```
+
+The loading state is critical: without it, the app would briefly flash the protected page before redirecting unauthenticated users, or show the login page to authenticated users during the token validation request.
 
 ---
 
 ## Design System (index.css)
 
-All styling is centralized in `index.css` with CSS custom properties:
+All styling uses CSS custom properties — no CSS-in-JS, no Tailwind.
 
-### Color Palette
-| Variable | Value | Usage |
-|----------|-------|-------|
-| `--color-primary` | `#0D9F6E` | Buttons, links, active states |
-| `--color-primary-hover` | `#087F5B` | Button hover states |
-| `--color-bg-page` | `#F5F5F5` | Page background |
-| `--color-bg-card` | `#FFFFFF` | Cards, modals |
-| `--color-text-primary` | `#1A1A2E` | Main text |
-| `--color-text-secondary` | `#6B7280` | Subtitles, labels |
-| `--color-text-muted` | `#9CA3AF` | Hints, timestamps |
-| `--color-border` | `#E5E7EB` | Card borders, dividers |
-| `--color-income` | `#0D9F6E` | Income amounts (green) |
-| `--color-expense` | `#E53935` | Expense amounts (red) |
+```css
+:root {
+  --color-primary:       #0D9F6E;   /* Green — buttons, active states */
+  --color-primary-hover: #087F5B;   /* Darker green — hover states */
+  --color-income:        #0D9F6E;   /* Green text for income */
+  --color-expense:       #FF4D4F;   /* Red text for expenses */
+  --color-bg-page:       #F8F9FA;   /* Light gray page background */
+  --color-bg-card:       #FFFFFF;   /* White cards */
+  --color-border:        #E5E7EB;   /* Subtle borders */
+}
+```
 
-### Typography
-- **Font:** Inter (Google Fonts), with system font fallbacks
-- **Headings:** 600 weight, dark navy (#1A1A2E)
-- **Body:** 400 weight, 14px base
+Ant Design's theme tokens override the library globally:
+```javascript
+<ConfigProvider theme={{ token: { colorPrimary: '#0D9F6E', borderRadius: 8 } }}>
+```
 
-### Key Design Rules
-- **Light/white theme** — no dark mode
-- **Currency:** GBP (£)
-- **Income:** Green text
-- **Expense:** Red text
-- **Card borders:** 1px solid, 12px border-radius
-- **Buttons:** 8px border-radius, green primary color
-- **Spacing:** Consistent 16px/24px padding system
+### Currency Formatting
+
+```javascript
+const formatCurrency = (val) =>
+  new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' }).format(val || 0);
+```
+
+`Intl.NumberFormat` is built into every modern browser — no library import needed. `en-GB` ensures comma thousands separator and `£` symbol.
 
 ---
 
-## Page Details
-
-### Login (`/login`)
-- Email + password form with Ant Design validation
-- On success: stores JWT → loads profile → redirects to `/`
-- Link to register page
-
-### Register (`/register`)
-- Full name + email + password + confirm password
-- Client-side validation matches backend rules (email format, min 6 chars)
-- On success: redirects to `/login` with success message
+## Pages
 
 ### Dashboard (`/`)
-- **3 stat cards:** Total Income, Total Expense, Balance
-- **Pie chart:** Spending breakdown by category (Recharts donut)
-- **Recent transactions table:** Last 5 transactions
-- Fetches from `GET /transactions/dashboard` + `GET /transactions?page=0&size=5`
+- **3 stat cards**: Total Income, Total Expense, Balance
+- **Pie chart**: Spending breakdown by category via `GET /transactions/category-summary`
+- **Recent transactions**: Last 5 via `GET /transactions?page=0&size=5`
+
+Fetching the pie chart from the dashboard endpoint rather than the 5 recent transactions ensures all transactions are represented, not just the most recent ones.
 
 ### Transactions (`/transactions`)
-- **Filter bar:** Category dropdown + date range picker + Apply button
-- **Table:** Date, Category (tag), Description, Type (IN/OUT tag), Amount, Actions
-- **Pagination:** Page size selector, total count display
-- **Add/Edit modal:** Type (Income/Expense), Category, Amount (£), Description, Date
-- **Delete:** Confirmation popover before deletion
-- **Export CSV:** Downloads via `GET /transactions/export`
-
-### Categories (`/categories`)
-- **Table:** Icon (emoji) + Name, Type (Income/Expense tag), Actions
-- **Add/Edit modal:** Name, Type (Income/Expense), Icon (emoji input)
-- Auto-created categories appear here when transactions are created
+- **Filter bar**: Category dropdown + DatePicker.RangePicker + Apply
+- **Table**: pagination (`current`, `pageSize`, `total`), sortable columns
+- **Add/Edit modal**: Type → Category → Amount → Description → Date
+- **Delete**: Popconfirm (confirmation dialog) before DELETE
+- **Export**: `GET /transactions/export` with `responseType: 'blob'` → trigger download
 
 ### Bank Accounts (`/banks`)
-- **Empty state:** "Link Your First Bank" button
-- **Account cards:** Bank logo/name, status tag, masked IBAN, last sync time
-- **Card actions:** Sync, History, Unlink
-- **Link modal:** Country selector (UK, DE, FR, etc.) → Bank dropdown → Connect
-- **History modal:** Table of past syncs (date, status, fetched/new counts, errors)
-- **Sync:** Triggers `POST /banks/{id}/sync`, shows new transaction count
-
-### Profile (`/profile`)
-- **Two-column layout:**
-  - Left: Profile info (email read-only, editable name)
-  - Right: Change password (current + new + confirm)
+- Country selector → fetches institution list → user picks bank
+- After `POST /banks/link`, redirects browser to GoCardless
+- GoCardless redirects back to `/api/banks/callback` → frontend polls account status
+- Sync shows new transaction count from the response
 
 ---
 
-## API Endpoints Used by Frontend
+## Routing
 
-| Page | Endpoint | Method | Purpose |
-|------|----------|--------|---------|
-| Login | `/auth/login` | POST | Authenticate user |
-| Register | `/auth/register` | POST | Create account |
-| Auth Check | `/user/profile` | GET | Validate token on page load |
-| Dashboard | `/transactions/dashboard` | GET | Income/expense/balance stats |
-| Dashboard | `/transactions?page=0&size=5` | GET | Recent transactions |
-| Transactions | `/transactions` | GET | Paginated filtered list |
-| Transactions | `/transactions` | POST | Create transaction |
-| Transactions | `/transactions/{id}` | PUT | Update transaction |
-| Transactions | `/transactions/{id}` | DELETE | Delete transaction |
-| Transactions | `/transactions/export` | GET | CSV download |
-| Categories | `/categories` | GET | List categories |
-| Categories | `/categories` | POST | Create category |
-| Categories | `/categories/{id}` | PUT | Update category |
-| Categories | `/categories/{id}` | DELETE | Delete category |
-| Banks | `/banks` | GET | List linked accounts |
-| Banks | `/banks/institutions?country=` | GET | List available banks |
-| Banks | `/banks/link` | POST | Start linking flow |
-| Banks | `/banks/{id}/sync` | POST | Manual sync |
-| Banks | `/banks/{id}/sync-history` | GET | Sync history |
-| Banks | `/banks/{id}` | DELETE | Unlink bank |
-| Profile | `/user/profile` | PUT | Update name |
-| Profile | `/user/change-password` | PUT | Change password |
+| Path | Component | Auth | API Calls |
+|------|-----------|------|-----------|
+| `/login` | Login | Public | POST /auth/login |
+| `/register` | Register | Public | POST /auth/register |
+| `/` | Dashboard | Protected | GET /dashboard + GET /category-summary + GET /transactions |
+| `/transactions` | Transactions | Protected | Full CRUD + GET /categories + export |
+| `/categories` | Categories | Protected | GET /categories + CRUD |
+| `/banks` | BankAccounts | Protected | GET /banks + institutions + sync + history |
+| `/profile` | Profile | Protected | GET /user/profile + PUT endpoints |
 
 ---
 
 ## Running the Frontend
 
-### Prerequisites
-- Node.js 18+ installed
-- Backend running on `http://localhost:8080`
-
-### Commands
 ```bash
-cd frontend
-npm install          # Install dependencies (first time only)
-npm run dev          # Start dev server → http://localhost:5173
-npm run build        # Production build → dist/
-npm run preview      # Preview production build
+# Prerequisites: Node.js 18+, backend running on localhost:8080
+
+npm install           # First time only — installs React, Ant Design, Vite, etc.
+npm run dev          # Dev server on http://localhost:5173
+npm run build        # Production build → frontend/dist/
+npm run preview      # Preview production build locally
 ```
 
-### CORS
-The Spring Boot backend allows `http://localhost:*` origins via `SecurityConfig.java`. The Vite dev server runs on port 5173 by default.
+### Environment Variables
+
+| Variable | Dev Value | Prod Value | Why |
+|----------|-----------|------------|-----|
+| `VITE_API_URL` | `http://localhost:8080/api` | `/api` | In prod, Nginx serves both frontend and API on the same domain |
+
+In production, `/api` is a **relative path** — the browser sends it to the same host Nginx is running on, and Nginx forwards it to the backend container. No CORS needed.
 
 ---
 
 ## Architecture Decisions
 
-### Why SPA instead of server-rendered (Thymeleaf)?
-- **Better UX:** No full page reloads, instant navigation
-- **Separation of concerns:** Frontend and backend are independent, deployable separately
-- **Modern tooling:** Hot module replacement, component dev tools
-- **Team scalability:** Frontend and backend developers can work independently
+### Why SPA over server-rendered (Thymeleaf)?
 
-### Why Ant Design instead of custom CSS?
-- **Speed:** Production-quality tables, forms, modals, notifications out of the box
-- **Consistency:** Unified design language across all pages
-- **Configurability:** Theme tokens override colors/fonts globally
-- **Accessibility:** Built-in ARIA attributes and keyboard navigation
+- **No full page reloads** — navigation is instant
+- **Frontend/backend independently deployable** — the API is just a contract
+- **Hot module replacement** — changes appear immediately during development
 
-### Why Context API instead of Redux?
-- **Simplicity:** Auth state is the only global state needed
-- **Minimal boilerplate:** No actions, reducers, or store configuration
-- **Right tool for the job:** Redux is overkill when state is simple and local to components
+### Why Ant Design over MUI or Chakra UI?
 
-### Why Axios instead of fetch()?
-- **Interceptors:** Automatic JWT injection and 401 handling
-- **Request cancellation:** Built-in AbortController support
-- **Response parsing:** Automatic JSON parsing
-- **Base URL:** Set once, all requests use it
+Ant Design's component set (tables, forms, modals, DatePickers) maps directly to the CRUD-heavy nature of an expense tracker. Its Table component handles pagination, sorting, and loading states natively — building this from scratch would be days of work.
+
+### Why Context API over Redux?
+
+Auth state (user, token, loading) is the only truly global state. Redux adds actions, reducers, a store, and provider setup — overhead disproportionate to the problem. Context + `useState` covers it in 20 lines.
+
+### Why Recharts over Chart.js?
+
+Recharts is built in React — components are React components, not imperative DOM manipulation. It tree-shakes better (import `PieChart` without pulling in line/bar charts) and works naturally with Ant Design's Layout system.

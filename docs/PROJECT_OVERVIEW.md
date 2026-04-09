@@ -20,8 +20,8 @@ The system was originally built for Vietnamese banks (via Casso webhook) and has
 | 1 | Core Foundation | ✅ Done | Database, authentication, user management |
 | 2 | Business Logic | ✅ Done | Transaction management, categories, reports, export |
 | 3 | Bank Integration | ✅ Done | GoCardless Open Banking, auto-sync, scheduler |
-| 4 | Frontend & Real-time | 🔧 Partial | React SPA built — auth, dashboard, CRUD pages. WebSocket pending |
-| 5 | DevSecOps & Deploy | 🔧 Partial | Docker DB exists, needs app container & CI/CD |
+| 4 | Frontend & Real-time | ✅ Done | React SPA built — auth, dashboard, CRUD, bank linking. WebSocket pending |
+| 5 | DevSecOps & Deploy | ✅ Done | Docker Compose, GitHub Actions CI/CD, Nginx, Certbot, EC2 |
 
 ---
 
@@ -126,15 +126,16 @@ A React web application that connects to the backend API:
 
 ---
 
-### 🚀 Phase 5: DevSecOps & Deploy (Partially Done)
+### 🚀 Phase 5: DevSecOps & Deploy
 
 | Item | Status | Description |
 |------|--------|-------------|
-| Docker (Database) | ✅ Done | PostgreSQL runs in a Docker container |
-| Docker (App) | ❌ Pending | Spring Boot app needs its own Dockerfile |
-| Cloud Deploy | ❌ Pending | Deploy to VPS or Render/Railway |
-| CI/CD | ❌ Pending | GitHub Actions for automatic deployment |
-| SSL/HTTPS | ❌ Pending | Required for bank API callbacks in production |
+| Docker (Database) | ✅ Done | PostgreSQL in Docker container, exposed on host port 5433 |
+| Docker (App) | ✅ Done | Multi-stage Maven Dockerfile, runs via docker-compose |
+| Docker (Nginx) | ✅ Done | Multi-stage Node + Nginx, serves React build, proxies /api |
+| Cloud Deploy | ✅ Done | AWS EC2 (spendwiser.me) |
+| CI/CD | ✅ Done | GitHub Actions deploy.yml — build test + SSH deploy to EC2 |
+| SSL/HTTPS | ✅ Done | Certbot + Let's Encrypt via nginx/certbot containers |
 
 ---
 
@@ -145,7 +146,7 @@ A React web application that connects to the backend API:
 │   React SPA  │  JWT   │                        │  SQL   │            │
 │   (Vite)     │───────▶│   Expense Tracker API  │───────▶│ PostgreSQL │
 │              │◀───────│   (Spring Boot)        │◀───────│ (Database) │
-│  port 5173   │  JSON  │   port 8080            │        │  port 5433 │
+│  port 5173   │  JSON  │   port 8080            │        │ 5433:5432* │
 └──────────────┘        └───────────┬────────────┘        └────────────┘
                                     │
                               Every 15 min

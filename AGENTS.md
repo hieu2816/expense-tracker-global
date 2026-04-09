@@ -1,9 +1,9 @@
 # AGENTS.md - AI Coding Agent Guidelines
 
 ## Project Overview
-Expense Tracking API - Spring Boot REST API for personal finance management with JWT authentication, bank webhook integration, and transaction categorization.
+Expense Tracking Global — a personal finance REST API with JWT auth, Open Banking (GoCardless), and React SPA.
 
-**Tech Stack:** Java 21, Spring Boot 3.5.9, PostgreSQL 16, Maven, Flyway, Lombok, JWT
+**Tech Stack:** Java 21, Spring Boot 3.5.9, PostgreSQL 16, Maven, Flyway, Lombok, JWT · React 19, Vite 7, Ant Design 6
 
 ## Build & Test Commands
 
@@ -21,7 +21,14 @@ Expense Tracking API - Spring Boot REST API for personal finance management with
 ## Development Setup
 
 ```bash
-docker-compose up -d                # Start PostgreSQL (localhost:5432/postgres)
+# Start PostgreSQL via Docker Compose (host port 5433 → container port 5432)
+docker-compose up -d
+
+# Run backend (requires DB_USERNAME, DB_PASSWORD env vars — see .env.example)
+./mvnw spring-boot:run
+
+# Run frontend (port 5173, proxies /api to localhost:8080)
+cd frontend && npm run dev
 ```
 Flyway migrations auto-run on startup from `src/main/resources/db/migration/`.
 
@@ -112,13 +119,17 @@ public class SomeResponse { }
 
 ### Get Current User
 ```java
-User user = (User) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+// Preferred: Spring injects the User from the SecurityContext automatically
+@GetMapping("/profile")
+public ResponseEntity<UserProfileResponse> getProfile(@AuthenticationPrincipal User user) {
+    return ResponseEntity.ok(userService.getProfile(user));
+}
 ```
 
 ### Ownership Verification (Required for update/delete)
 ```java
 if (!entity.getUser().getId().equals(user.getId())) {
-    throw new RuntimeException("You do not own this resource");
+    throw new ForbiddenException("You do not own this resource");
 }
 ```
 
@@ -180,20 +191,22 @@ public ResponseEntity<Page<ResponseDTO>> getAll(
 ```
 
 ## Error Handling
-- Throw `RuntimeException` with descriptive messages for business errors
-- `GlobalExceptionHandler` catches and formats validation/runtime exceptions
+- Use custom exceptions (`BadRequestException`, `ForbiddenException`, `ResourceNotFoundException`, `ConflictException`) with their correct HTTP status codes
+- `GlobalExceptionHandler` catches and formats validation and business exceptions
 - Always verify resource ownership before modifications
 
 ## Database Migrations
 - Location: `src/main/resources/db/migration/`
 - Naming: `V{version}__{description}.sql` (double underscore)
+- Current migrations: V1 (init), V2 (GoCardless), V3 (adjustments), V4 (link reference UUID), V5 (category unique constraint)
 - Use snake_case for table/column names
-- Add `ON DELETE CASCADE` for appropriate foreign keys
+- JPA is `ddl-auto: validate` — Flyway owns the schema
 
 ## Security
-- JWT auth required for all endpoints except `/api/auth/**` and `/api/webhook/**`
-- Webhook endpoints validate secure tokens from request headers
+- JWT auth required for all endpoints except `/api/auth/**` and `/api/banks/callback`
+- GoCardless callback is public (bank redirects without JWT) — protected by UUID in `link_reference`
 - Always verify resource ownership before update/delete operations
+- `@AuthenticationPrincipal` is the preferred way to get the current user
 
 ## Testing
 ```java
