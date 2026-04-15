@@ -94,22 +94,26 @@ jobs:
             docker image prune -f
 
             # Wait for backend to be healthy before running smoke tests
+            # Backend port 8080 is internal-only, Nginx only proxies /api/*
+            # So we check /api/auth/login as a proxy for backend liveness
             echo "Waiting for backend to be healthy..."
             timeout=60
             elapsed=0
             while true; do
-              HEALTH=$(docker compose exec -T backend wget -qO- http://localhost:8080/actuator/health 2>/dev/null | jq -r .status 2>/dev/null || echo "DOWN")
-              if [[ "$HEALTH" == "UP" ]]; then
+              HTTP_CODE=$(curl -sf -o /dev/null -w "%{http_code}" --max-time 5 -X POST https://spendwiser.me/api/auth/login \
+                -H "Content-Type: application/json" \
+                -d '{"email":"healthcheck@test.com","password":"wrong"}' 2>/dev/null || echo "DOWN")
+              if [[ "$HTTP_CODE" == "400" || "$HTTP_CODE" == "401" ]]; then
                 echo "Backend is healthy!"
                 break
               fi
               if (( elapsed >= timeout )); then
-                echo "Backend health check timed out after ${timeout}s"
+                echo "Backend health check timed out after ${timeout}s (got: $HTTP_CODE)"
                 break
               fi
               sleep 5
               elapsed=$((elapsed + 5))
-              echo "Still waiting... (${elapsed}s)"
+              echo "Still waiting... (${elapsed}s, got: $HTTP_CODE)"
             done
 
             # Install / update monitoring cron jobs

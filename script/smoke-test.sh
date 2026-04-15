@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-BASE_URL="${1:-http://localhost:8080}"
+BASE_URL="${1:-https://spendwiser.me}"
 FAILED=0
 
 TELEGRAM_BOT_TOKEN="${TELEGRAM_BOT_TOKEN:-}"
@@ -41,7 +41,7 @@ HTTP_CODE=$(curl -sf -o /dev/null -w "%{http_code}" --max-time 10 -X POST "$BASE
 
 # 3. Nginx serves frontend
 echo -n "Frontend: "
-FRONTEND=$(curl -sf -o /dev/null -w "%{http_code}" --max-time 10 http://localhost/) || FRONTEND="UNREACHABLE"
+FRONTEND=$(curl -sf -o /dev/null -w "%{http_code}" --max-time 10 https://spendwiser.me/) || FRONTEND="UNREACHABLE"
 [[ "$FRONTEND" == "200" ]] && echo "✅ $FRONTEND" || {
     echo "❌ $FRONTEND"
     nginx_logs=$(docker compose logs nginx --tail=10 2>&1 | tr '\n' '|')
