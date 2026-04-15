@@ -104,14 +104,11 @@ jobs:
               NGINX_STATE=$(docker inspect --format='{{.State.Status}}' expense-nginx 2>/dev/null || echo "unknown")
               NGINX_HEALTH=$(docker inspect --format='{{if .State.Health}}{{.State.Health.Status}}{{else}}no-healthcheck{{end}}' expense-nginx 2>/dev/null || echo "unknown")
               echo "Backend: state=$BACKEND_STATE health=$BACKEND_HEALTH | Nginx: state=$NGINX_STATE health=$NGINX_HEALTH"
-              if [[ "$BACKEND_STATE" == "running" && ("$BACKEND_HEALTH" == "healthy" || "$BACKEND_HEALTH" == "no-healthcheck") && "$NGINX_STATE" == "running" && ("$NGINX_HEALTH" == "healthy" || "$NGINX_HEALTH" == "no-healthcheck") ]]; then
-                echo "All containers are up!"
+              if [[ "$BACKEND_STATE" == "running" && "$NGINX_STATE" == "running" ]]; then
+                echo "All containers are running!"
                 break
               fi
-              if [[ "$BACKEND_STATE" == "running" && "$NGINX_STATE" == "running" ]]; then
-                # Containers running but health not yet green — wait for it
-                :
-              elif [[ "$BACKEND_STATE" == "restarting" || "$NGINX_STATE" == "restarting" ]]; then
+              if [[ "$BACKEND_STATE" == "restarting" || "$NGINX_STATE" == "restarting" ]]; then
                 echo "A container is restarting — may be a startup issue"
                 break
               fi

@@ -35,8 +35,8 @@ else
 fi
 
 # 2. Frontend — check nginx on host port 80 (exposed in docker-compose)
-echo -n "Frontend (localhost:80): "
-FRONTEND=$(curl -sf -o /dev/null -w "%{http_code}" --max-time 10 http://localhost/ 2>/dev/null) || FRONTEND="DOWN"
+echo -n "Frontend (localhost): "
+FRONTEND=$(curl -sfk -o /dev/null -w "%{http_code}" --max-time 10 -L http://localhost/ 2>/dev/null) || FRONTEND="DOWN"
 if [[ "$FRONTEND" == "200" ]]; then
     echo "✅ $FRONTEND"
 else
