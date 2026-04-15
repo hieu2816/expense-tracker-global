@@ -28,6 +28,24 @@ jwt:
   secret: ${JWT_SECRET:MySuperStrongSuperLongSecretKeyForSecurity2806}
   expiration: 86400000 # 24 hours in milliseconds
 
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info      # NOT metrics — metrics expose too many internals publicly
+  endpoint:
+    health:
+      show-details: when_authorized   # Default: only authenticated users see DB/internal details
+      probes:
+        enabled: true     # Enables /health/liveness and /health/readiness (K8s probes)
+  health:
+    db:
+      enabled: true       # Checks PostgreSQL connection pool
+    diskSpace:
+      enabled: true      # Checks disk space
+
+
+
 # GoCardless Bank Account Data API configuration
 # These credentials are used to authenticate with GoCardless API
 gocardless:
