@@ -73,7 +73,8 @@ jobs:
             set -e
 
             cd ~/expense-tracker-global
-            git pull origin main
+            git fetch origin main
+            git reset --hard origin/main
 
             # Write environment variables
             cat << 'ENVEOF' > .env
