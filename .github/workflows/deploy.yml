@@ -93,27 +93,30 @@ jobs:
             docker compose up -d
             docker image prune -f
 
-            # Wait for backend to be healthy before running smoke tests
-            # Backend port 8080 is internal-only, Nginx only proxies /api/*
-            # So we check /api/auth/login as a proxy for backend liveness
-            echo "Waiting for backend to be healthy..."
-            timeout=60
+            # Wait for containers to be Docker-healthy before smoke tests
+            # Uses Docker's own healthcheck (no DNS, no port exposure needed)
+            echo "Waiting for containers to be healthy..."
+            timeout=90
             elapsed=0
             while true; do
-              HTTP_CODE=$(curl -sf -o /dev/null -w "%{http_code}" --max-time 5 -X POST https://spendwiser.me/api/auth/login \
-                -H "Content-Type: application/json" \
-                -d '{"email":"healthcheck@test.com","password":"wrong"}' 2>/dev/null || echo "DOWN")
-              if [[ "$HTTP_CODE" == "400" || "$HTTP_CODE" == "401" ]]; then
-                echo "Backend is healthy!"
+              BACKEND_HEALTH=$(docker compose ps expense-backend --format json 2>/dev/null | jq -r '.Health' 2>/dev/null || echo "starting")
+              NGINX_HEALTH=$(docker compose ps expense-nginx --format json 2>/dev/null | jq -r '.Health' 2>/dev/null || echo "starting")
+              echo "Backend: $BACKEND_HEALTH | Nginx: $NGINX_HEALTH"
+              if [[ "$BACKEND_HEALTH" == "healthy" && "$NGINX_HEALTH" == "healthy" ]]; then
+                echo "All containers healthy!"
                 break
               fi
-              if (( elapsed >= timeout )); then
-                echo "Backend health check timed out after ${timeout}s (got: $HTTP_CODE)"
+              if [[ "$BACKEND_HEALTH" == "unhealthy" || "$NGINX_HEALTH" == "unhealthy" ]]; then
+                echo "A container is unhealthy — check logs"
                 break
               fi
               sleep 5
               elapsed=$((elapsed + 5))
-              echo "Still waiting... (${elapsed}s, got: $HTTP_CODE)"
+              echo "Waiting... (${elapsed}s)"
+              if (( elapsed >= timeout )); then
+                echo "Health check timed out after ${timeout}s"
+                break
+              fi
             done
 
             # Install / update monitoring cron jobs
