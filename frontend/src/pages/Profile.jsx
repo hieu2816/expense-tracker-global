@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Card, Form, Input, Button, message, Divider, Row, Col } from 'antd';
+import { Card, Form, Input, Button, message, Row, Col } from 'antd';
 import { UserOutlined, MailOutlined, LockOutlined } from '@ant-design/icons';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../api/axios';
@@ -47,13 +47,10 @@ const Profile = () => {
                 <h1>Profile</h1>
             </div>
 
-            <Row gutter={[24, 24]}>
+            <Row gutter={[20, 20]}>
                 {/* Profile Info */}
                 <Col xs={24} md={12}>
-                    <Card
-                        title="Profile Information"
-                        style={{ borderRadius: 12, border: '1px solid var(--color-border)' }}
-                    >
+                    <Card title="Profile Information">
                         <Form
                             form={profileForm}
                             layout="vertical"
@@ -62,7 +59,7 @@ const Profile = () => {
                         >
                             <Form.Item label="Email">
                                 <Input
-                                    prefix={<MailOutlined />}
+                                    prefix={<MailOutlined style={{ color: 'var(--color-text-muted)' }} />}
                                     value={user?.email}
                                     disabled
                                     style={{ background: 'var(--color-bg-page)' }}
@@ -73,14 +70,13 @@ const Profile = () => {
                                 label="Full Name"
                                 rules={[{ required: true, message: 'Name is required' }]}
                             >
-                                <Input prefix={<UserOutlined />} placeholder="Your name" />
+                                <Input prefix={<UserOutlined style={{ color: 'var(--color-text-muted)' }} />} placeholder="Your name" />
                             </Form.Item>
-                            <Form.Item>
+                            <Form.Item style={{ marginBottom: 0 }}>
                                 <Button
                                     type="primary"
                                     htmlType="submit"
                                     loading={savingProfile}
-                                    style={{ borderRadius: 8 }}
                                 >
                                     Save Changes
                                 </Button>
@@ -91,17 +87,14 @@ const Profile = () => {
 
                 {/* Change Password */}
                 <Col xs={24} md={12}>
-                    <Card
-                        title="Change Password"
-                        style={{ borderRadius: 12, border: '1px solid var(--color-border)' }}
-                    >
+                    <Card title="Change Password">
                         <Form form={passwordForm} layout="vertical" onFinish={handleChangePassword}>
                             <Form.Item
                                 name="currentPassword"
                                 label="Current Password"
                                 rules={[{ required: true, message: 'Current password is required' }]}
                             >
-                                <Input.Password prefix={<LockOutlined />} placeholder="Current password" />
+                                <Input.Password prefix={<LockOutlined style={{ color: 'var(--color-text-muted)' }} />} placeholder="Current password" />
                             </Form.Item>
                             <Form.Item
                                 name="newPassword"
@@ -111,7 +104,7 @@ const Profile = () => {
                                     { min: 8, message: 'Password must be at least 8 characters' },
                                 ]}
                             >
-                                <Input.Password prefix={<LockOutlined />} placeholder="New password" />
+                                <Input.Password prefix={<LockOutlined style={{ color: 'var(--color-text-muted)' }} />} placeholder="New password" />
                             </Form.Item>
                             <Form.Item
                                 name="confirmPassword"
@@ -127,14 +120,13 @@ const Profile = () => {
                                     }),
                                 ]}
                             >
-                                <Input.Password prefix={<LockOutlined />} placeholder="Confirm new password" />
+                                <Input.Password prefix={<LockOutlined style={{ color: 'var(--color-text-muted)' }} />} placeholder="Confirm new password" />
                             </Form.Item>
-                            <Form.Item>
+                            <Form.Item style={{ marginBottom: 0 }}>
                                 <Button
                                     type="primary"
                                     htmlType="submit"
                                     loading={savingPassword}
-                                    style={{ borderRadius: 8 }}
                                 >
                                     Change Password
                                 </Button>

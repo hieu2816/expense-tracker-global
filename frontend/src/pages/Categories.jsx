@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Table, Button, Modal, Form, Input, Select, Tag, Card, Space, message, Popconfirm } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
+import { FolderOpen, Pencil, Trash2 } from 'lucide-react';
 import api from '../api/axios';
 
 const Categories = () => {
@@ -79,7 +80,14 @@ const Categories = () => {
             key: 'name',
             render: (name, record) => (
                 <Space>
-                    <span style={{ fontSize: 18 }}>{record.icon || '📁'}</span>
+                    <div style={{
+                        width: 32, height: 32, borderRadius: 'var(--radius-sm)',
+                        background: 'var(--color-primary-light)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        color: 'var(--color-primary)',
+                    }}>
+                        <FolderOpen size={16} />
+                    </div>
                     <span style={{ fontWeight: 500 }}>{name}</span>
                 </Space>
             ),
@@ -101,9 +109,20 @@ const Categories = () => {
             width: 80,
             render: (_, record) => (
                 <Space>
-                    <Button type="text" size="small" icon={<EditOutlined />} onClick={() => openEdit(record)} />
+                    <Button
+                        type="text"
+                        size="small"
+                        icon={<Pencil size={14} />}
+                        onClick={() => openEdit(record)}
+                        style={{ color: 'var(--color-text-secondary)' }}
+                    />
                     <Popconfirm title="Delete this category?" onConfirm={() => handleDelete(record.id)}>
-                        <Button type="text" size="small" danger icon={<DeleteOutlined />} />
+                        <Button
+                            type="text"
+                            size="small"
+                            icon={<Trash2 size={14} />}
+                            danger
+                        />
                     </Popconfirm>
                 </Space>
             ),
@@ -114,12 +133,12 @@ const Categories = () => {
         <div>
             <div className="page-header">
                 <h1>Categories</h1>
-                <Button type="primary" icon={<PlusOutlined />} onClick={openCreate} style={{ borderRadius: 8 }}>
+                <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
                     Add Category
                 </Button>
             </div>
 
-            <Card style={{ borderRadius: 12, border: '1px solid var(--color-border)' }}>
+            <Card>
                 <Table
                     columns={columns}
                     dataSource={categories}
@@ -142,15 +161,15 @@ const Categories = () => {
                     </Form.Item>
                     <Form.Item name="type" label="Type" rules={[{ required: true }]}>
                         <Select options={[
-                            { label: '💰 Income', value: 'IN' },
-                            { label: '💸 Expense', value: 'OUT' },
+                            { label: 'Income', value: 'IN' },
+                            { label: 'Expense', value: 'OUT' },
                         ]} />
                     </Form.Item>
                     <Form.Item name="icon" label="Icon (emoji)">
                         <Input placeholder="e.g. 🍔 🚗 💰" />
                     </Form.Item>
-                    <Form.Item>
-                        <Button type="primary" htmlType="submit" loading={saving} block style={{ borderRadius: 8, height: 44 }}>
+                    <Form.Item style={{ marginBottom: 0 }}>
+                        <Button type="primary" htmlType="submit" loading={saving} block>
                             {editing ? 'Update' : 'Create'} Category
                         </Button>
                     </Form.Item>

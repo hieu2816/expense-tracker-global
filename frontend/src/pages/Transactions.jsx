@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Table, Button, Modal, Form, Input, InputNumber, Select, DatePicker, Tag, Card, Space, message, Popconfirm } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined, DownloadOutlined } from '@ant-design/icons';
+import { Table, Button, Modal, Form, Input, InputNumber, Tag, Card, Space, message, Popconfirm, DatePicker, Select } from 'antd';
+import { PlusOutlined, DownloadOutlined } from '@ant-design/icons';
+import { Pencil, Trash2 } from 'lucide-react';
 import dayjs from 'dayjs';
 import api from '../api/axios';
 
@@ -25,15 +26,14 @@ const Transactions = () => {
             if (filters.category) params.category = filters.category;
             if (filters.startDate) params.startDate = filters.startDate;
             if (filters.endDate) params.endDate = filters.endDate;
-
             const response = await api.get('/transactions', { params });
-            setTransactions(response.data.content || []);
+            setTransactions(response.data?.content || []);
             setPagination({
-                current: (response.data.number || 0) + 1,
-                pageSize: response.data.size || 10,
-                total: response.data.totalElements || 0,
+                current: (response.data?.number || 0) + 1,
+                pageSize: response.data?.size || 10,
+                total: response.data?.totalElements || 0,
             });
-        } catch (error) {
+        } catch {
             message.error('Failed to load transactions');
         } finally {
             setLoading(false);
@@ -44,9 +44,7 @@ const Transactions = () => {
         try {
             const response = await api.get('/categories');
             setCategories(response.data || []);
-        } catch {
-            // Categories endpoint might not exist yet
-        }
+        } catch { /* silent */ }
     };
 
     useEffect(() => {
@@ -64,7 +62,6 @@ const Transactions = () => {
                 description: values.description || '',
                 transactionDate: values.transactionDate ? values.transactionDate.format('YYYY-MM-DDTHH:mm:ss') : null,
             };
-
             if (editingTxn) {
                 await api.put(`/transactions/${editingTxn.id}`, payload);
                 message.success('Transaction updated');
@@ -72,7 +69,6 @@ const Transactions = () => {
                 await api.post('/transactions', payload);
                 message.success('Transaction created');
             }
-
             setModalOpen(false);
             setEditingTxn(null);
             form.resetFields();
@@ -160,9 +156,7 @@ const Transactions = () => {
             dataIndex: 'type',
             key: 'type',
             width: 80,
-            render: (type) => (
-                <Tag color={type === 'IN' ? 'green' : 'red'}>{type === 'IN' ? 'Income' : 'Expense'}</Tag>
-            ),
+            render: (type) => <Tag color={type === 'IN' ? 'green' : 'red'}>{type === 'IN' ? 'Income' : 'Expense'}</Tag>,
         },
         {
             title: 'Amount',
@@ -171,7 +165,10 @@ const Transactions = () => {
             align: 'right',
             width: 140,
             render: (amount, record) => (
-                <span className={record.type === 'IN' ? 'amount-in' : 'amount-out'}>
+                <span style={{
+                    fontWeight: 600,
+                    color: record.type === 'IN' ? 'var(--color-income)' : 'var(--color-expense)',
+                }}>
                     {record.type === 'IN' ? '+' : '-'}{formatCurrency(amount)}
                 </span>
             ),
@@ -182,9 +179,9 @@ const Transactions = () => {
             width: 80,
             render: (_, record) => (
                 <Space>
-                    <Button type="text" size="small" icon={<EditOutlined />} onClick={() => openEdit(record)} />
+                    <Button type="text" size="small" icon={<Pencil size={14} />} onClick={() => openEdit(record)} style={{ color: 'var(--color-text-secondary)' }} />
                     <Popconfirm title="Delete this transaction?" onConfirm={() => handleDelete(record.id)}>
-                        <Button type="text" size="small" danger icon={<DeleteOutlined />} />
+                        <Button type="text" size="small" icon={<Trash2 size={14} />} danger />
                     </Popconfirm>
                 </Space>
             ),
@@ -197,14 +194,11 @@ const Transactions = () => {
                 <h1>Transactions</h1>
                 <Space>
                     <Button icon={<DownloadOutlined />} onClick={handleExport}>Export CSV</Button>
-                    <Button type="primary" icon={<PlusOutlined />} onClick={openCreate} style={{ borderRadius: 8 }}>
-                        Add Transaction
-                    </Button>
+                    <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>Add Transaction</Button>
                 </Space>
             </div>
 
-            {/* Filters */}
-            <Card style={{ marginBottom: 16, borderRadius: 12, border: '1px solid var(--color-border)' }}>
+            <Card className="filter-card">
                 <Space wrap>
                     <Select
                         placeholder="All Categories"
@@ -222,14 +216,11 @@ const Transactions = () => {
                             }));
                         }}
                     />
-                    <Button type="primary" ghost onClick={() => loadTransactions(0, pagination.pageSize)}>
-                        Apply
-                    </Button>
+                    <Button type="primary" ghost onClick={() => loadTransactions(0, pagination.pageSize)}>Apply</Button>
                 </Space>
             </Card>
 
-            {/* Table */}
-            <Card style={{ borderRadius: 12, border: '1px solid var(--color-border)' }}>
+            <Card styles={{ body: { padding: '0' } }}>
                 <Table
                     columns={columns}
                     dataSource={transactions}
@@ -244,7 +235,6 @@ const Transactions = () => {
                 />
             </Card>
 
-            {/* Add/Edit Modal */}
             <Modal
                 title={editingTxn ? 'Edit Transaction' : 'Add Transaction'}
                 open={modalOpen}
@@ -253,22 +243,13 @@ const Transactions = () => {
             >
                 <Form form={form} layout="vertical" onFinish={handleSubmit} style={{ marginTop: 16 }}>
                     <Form.Item name="type" label="Type" rules={[{ required: true }]}>
-                        <Select options={[
-                            { label: '💰 Income', value: 'IN' },
-                            { label: '💸 Expense', value: 'OUT' },
-                        ]} />
+                        <Select options={[{ label: 'Income', value: 'IN' }, { label: 'Expense', value: 'OUT' }]} />
                     </Form.Item>
                     <Form.Item name="category" label="Category" rules={[{ required: true, message: 'Category is required' }]}>
                         <Input placeholder="e.g. Food, Salary, Rent" />
                     </Form.Item>
                     <Form.Item name="amount" label="Amount" rules={[{ required: true, message: 'Amount is required' }]}>
-                        <InputNumber
-                            min={0.01}
-                            step={0.01}
-                            prefix="£"
-                            style={{ width: '100%' }}
-                            placeholder="0.00"
-                        />
+                        <InputNumber min={0.01} step={0.01} prefix="£" style={{ width: '100%' }} placeholder="0.00" />
                     </Form.Item>
                     <Form.Item name="description" label="Description">
                         <Input.TextArea rows={2} placeholder="Optional description" />
@@ -276,8 +257,8 @@ const Transactions = () => {
                     <Form.Item name="transactionDate" label="Date">
                         <DatePicker style={{ width: '100%' }} />
                     </Form.Item>
-                    <Form.Item>
-                        <Button type="primary" htmlType="submit" loading={saving} block style={{ borderRadius: 8, height: 44 }}>
+                    <Form.Item style={{ marginBottom: 0 }}>
+                        <Button type="primary" htmlType="submit" loading={saving} block>
                             {editingTxn ? 'Update' : 'Create'} Transaction
                         </Button>
                     </Form.Item>

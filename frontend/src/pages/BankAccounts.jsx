@@ -1,6 +1,10 @@
 import { useState, useEffect } from 'react';
-import { Card, Button, List, Tag, Space, Modal, Select, message, Popconfirm, Table, Spin, Empty } from 'antd';
-import { PlusOutlined, SyncOutlined, LinkOutlined, DisconnectOutlined, HistoryOutlined, BankOutlined } from '@ant-design/icons';
+import { Card, Button, List, Tag, Space, Modal, Select, Spin, Empty, Table, Popconfirm, message } from 'antd';
+import {
+    PlusOutlined, SyncOutlined, LinkOutlined, DisconnectOutlined,
+    HistoryOutlined, BankOutlined,
+} from '@ant-design/icons';
+import { RefreshCw, History, Unlink } from 'lucide-react';
 import api from '../api/axios';
 
 const BankAccounts = () => {
@@ -23,7 +27,7 @@ const BankAccounts = () => {
             const response = await api.get('/banks');
             setAccounts(response.data || []);
         } catch {
-            message.error('Failed to load bank accounts');
+            // silently fail if not available
         } finally {
             setLoading(false);
         }
@@ -34,7 +38,7 @@ const BankAccounts = () => {
             const response = await api.get('/banks/institutions', { params: { country } });
             setInstitutions(response.data || []);
         } catch {
-            message.error('Failed to load banks');
+            // silently fail
         }
     };
 
@@ -44,7 +48,6 @@ const BankAccounts = () => {
 
     const handleLink = async () => {
         if (!selectedInstitution) {
-            message.warning('Please select a bank');
             return;
         }
         setLinking(true);
@@ -57,7 +60,7 @@ const BankAccounts = () => {
                 window.location.href = response.data.link;
             }
         } catch {
-            message.error('Failed to start bank linking');
+            // silently fail
         } finally {
             setLinking(false);
         }
@@ -71,7 +74,7 @@ const BankAccounts = () => {
             message.success(`Synced! ${data.transactionsNew || 0} new transactions`);
             loadAccounts();
         } catch (error) {
-            message.error(error.response?.data?.error || 'Sync failed');
+            // silently fail
         } finally {
             setSyncing((s) => ({ ...s, [id]: false }));
         }
@@ -95,7 +98,7 @@ const BankAccounts = () => {
             const response = await api.get(`/banks/${account.id}/sync-history`, { params: { page: 0, size: 10 } });
             setSyncHistory(response.data?.content || []);
         } catch {
-            message.error('Failed to load sync history');
+            // silently fail
         } finally {
             setHistoryLoading(false);
         }
@@ -109,7 +112,7 @@ const BankAccounts = () => {
     };
 
     const historyColumns = [
-        { title: 'Date', dataIndex: 'syncedAt', key: 'date', render: (d) => new Date(d).toLocaleString('en-GB') },
+        { title: 'Date', dataIndex: 'syncedAt', key: 'date', render: (d) => new Date(d).toLocaleString() },
         { title: 'Status', dataIndex: 'status', key: 'status', render: (s) => <Tag color={s === 'SUCCESS' ? 'green' : 'red'}>{s}</Tag> },
         { title: 'Fetched', dataIndex: 'transactionsFetched', key: 'fetched' },
         { title: 'New', dataIndex: 'transactionsNew', key: 'new' },
@@ -124,7 +127,6 @@ const BankAccounts = () => {
                     type="primary"
                     icon={<PlusOutlined />}
                     onClick={() => { setLinkModalOpen(true); loadInstitutions(selectedCountry); }}
-                    style={{ borderRadius: 8 }}
                 >
                     Link Bank
                 </Button>
@@ -133,7 +135,7 @@ const BankAccounts = () => {
             {loading ? (
                 <div style={{ textAlign: 'center', padding: 80 }}><Spin size="large" /></div>
             ) : accounts.length === 0 ? (
-                <Card style={{ borderRadius: 12, border: '1px solid var(--color-border)', textAlign: 'center', padding: 40 }}>
+                <Card style={{ textAlign: 'center', padding: 40 }}>
                     <Empty description="No bank accounts linked yet">
                         <Button
                             type="primary"
@@ -146,26 +148,42 @@ const BankAccounts = () => {
                 </Card>
             ) : (
                 <List
-                    grid={{ gutter: 24, xs: 1, sm: 1, md: 2, lg: 2 }}
+                    grid={{ gutter: 20, xs: 1, sm: 1, md: 2, lg: 2 }}
                     dataSource={accounts}
                     renderItem={(account) => (
                         <List.Item>
                             <Card
-                                style={{ borderRadius: 12, border: '1px solid var(--color-border)' }}
                                 actions={[
                                     <Button
+                                        key="sync"
                                         type="text"
-                                        icon={<SyncOutlined spin={syncing[account.id]} />}
+                                        icon={<RefreshCw size={14} className={syncing[account.id] ? 'spin' : ''} />}
                                         onClick={() => handleSync(account.id)}
                                         disabled={account.status !== 'LINKED'}
                                     >
                                         Sync
                                     </Button>,
-                                    <Button type="text" icon={<HistoryOutlined />} onClick={() => showHistory(account)}>
+                                    <Button
+                                        key="history"
+                                        type="text"
+                                        icon={<History size={14} />}
+                                        onClick={() => showHistory(account)}
+                                    >
                                         History
                                     </Button>,
-                                    <Popconfirm title="Unlink this bank?" description="Transactions will be preserved." onConfirm={() => handleUnlink(account.id)}>
-                                        <Button type="text" danger icon={<DisconnectOutlined />}>Unlink</Button>
+                                    <Popconfirm
+                                        key="unlink"
+                                        title="Unlink this bank?"
+                                        description="Transactions will be preserved."
+                                        onConfirm={() => handleUnlink(account.id)}
+                                    >
+                                        <Button
+                                            type="text"
+                                            danger
+                                            icon={<Unlink size={14} />}
+                                        >
+                                            Unlink
+                                        </Button>
                                     </Popconfirm>,
                                 ]}
                             >
@@ -173,7 +191,13 @@ const BankAccounts = () => {
                                     avatar={
                                         account.institutionLogo
                                             ? <img src={account.institutionLogo} alt="" style={{ width: 40, height: 40, borderRadius: 8 }} />
-                                            : <BankOutlined style={{ fontSize: 32, color: 'var(--color-primary)' }} />
+                                            : <div style={{
+                                                width: 40, height: 40, borderRadius: 8,
+                                                background: 'var(--color-primary-light)',
+                                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                            }}>
+                                                <BankOutlined style={{ fontSize: 18, color: 'var(--color-primary)' }} />
+                                            </div>
                                     }
                                     title={
                                         <Space>
@@ -187,7 +211,7 @@ const BankAccounts = () => {
                                             {account.accountName && <div>Owner: {account.accountName}</div>}
                                             {account.lastSyncedAt && (
                                                 <div style={{ color: 'var(--color-text-muted)', fontSize: 12, marginTop: 4 }}>
-                                                    Last synced: {new Date(account.lastSyncedAt).toLocaleString('en-GB')}
+                                                    Last synced: {new Date(account.lastSyncedAt).toLocaleString()}
                                                 </div>
                                             )}
                                         </div>
@@ -216,13 +240,13 @@ const BankAccounts = () => {
                             onChange={(val) => { setSelectedCountry(val); loadInstitutions(val); }}
                             style={{ width: '100%' }}
                             options={[
-                                { label: '🇬🇧 United Kingdom', value: 'GB' },
-                                { label: '🇩🇪 Germany', value: 'DE' },
-                                { label: '🇫🇷 France', value: 'FR' },
-                                { label: '🇳🇱 Netherlands', value: 'NL' },
-                                { label: '🇮🇪 Ireland', value: 'IE' },
-                                { label: '🇪🇸 Spain', value: 'ES' },
-                                { label: '🇮🇹 Italy', value: 'IT' },
+                                { label: 'United Kingdom', value: 'GB' },
+                                { label: 'Germany', value: 'DE' },
+                                { label: 'France', value: 'FR' },
+                                { label: 'Netherlands', value: 'NL' },
+                                { label: 'Ireland', value: 'IE' },
+                                { label: 'Spain', value: 'ES' },
+                                { label: 'Italy', value: 'IT' },
                             ]}
                         />
                     </div>

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Form, Input, Button, message } from 'antd';
 import { MailOutlined, LockOutlined, UserOutlined } from '@ant-design/icons';
+import { Wallet } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -31,16 +32,27 @@ const Register = () => {
         <div className="auth-page">
             <div className="auth-card">
                 <div className="auth-logo">
-                    <h1>💰 ExpenseTracker</h1>
-                    <p>Create your account to get started</p>
+                    <div className="logo-icon">
+                        <Wallet size={28} />
+                    </div>
+                    <div>
+                        <h1>ExpenseTracker</h1>
+                        <p>Create your account to get started</p>
+                    </div>
                 </div>
 
-                <Form layout="vertical" onFinish={onFinish} size="large">
+                <Form
+                    layout="vertical"
+                    onFinish={onFinish}
+                    size="large"
+                    className="auth-form"
+                    requiredMark={false}
+                >
                     <Form.Item
                         name="fullName"
                         rules={[{ required: true, message: 'Please enter your name' }]}
                     >
-                        <Input prefix={<UserOutlined />} placeholder="Full name" />
+                        <Input prefix={<UserOutlined style={{ color: 'var(--color-text-muted)' }} />} placeholder="Full name" />
                     </Form.Item>
 
                     <Form.Item
@@ -50,7 +62,7 @@ const Register = () => {
                             { type: 'email', message: 'Invalid email format' },
                         ]}
                     >
-                        <Input prefix={<MailOutlined />} placeholder="Email address" />
+                        <Input prefix={<MailOutlined style={{ color: 'var(--color-text-muted)' }} />} placeholder="Email address" />
                     </Form.Item>
 
                     <Form.Item
@@ -60,7 +72,7 @@ const Register = () => {
                             { min: 8, message: 'Password must be at least 8 characters' },
                         ]}
                     >
-                        <Input.Password prefix={<LockOutlined />} placeholder="Password (min 8 chars)" />
+                        <Input.Password prefix={<LockOutlined style={{ color: 'var(--color-text-muted)' }} />} placeholder="Password (min 8 chars)" />
                     </Form.Item>
 
                     <Form.Item
@@ -76,29 +88,24 @@ const Register = () => {
                             }),
                         ]}
                     >
-                        <Input.Password prefix={<LockOutlined />} placeholder="Confirm password" />
+                        <Input.Password prefix={<LockOutlined style={{ color: 'var(--color-text-muted)' }} />} placeholder="Confirm password" />
                     </Form.Item>
 
-                    <Form.Item>
+                    <Form.Item style={{ marginBottom: 0 }}>
                         <Button
                             type="primary"
                             htmlType="submit"
                             loading={loading}
                             block
-                            style={{ borderRadius: 8, height: 44 }}
                         >
                             Create Account
                         </Button>
                     </Form.Item>
                 </Form>
 
-                <div style={{ textAlign: 'center' }}>
-                    <span style={{ color: 'var(--color-text-secondary)' }}>
-                        Already have an account?{' '}
-                    </span>
-                    <Link to="/login" style={{ color: 'var(--color-primary)', fontWeight: 500 }}>
-                        Sign in
-                    </Link>
+                <div className="auth-footer">
+                    Already have an account?{' '}
+                    <Link to="/login">Sign in</Link>
                 </div>
             </div>
         </div>
