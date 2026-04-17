@@ -44,7 +44,8 @@ management:
     diskSpace:
       enabled: true      # Checks disk space
 
-
+app:
+  allowed-origins: http://localhost:3000,http://localhost:8080
 
 # GoCardless Bank Account Data API configuration
 # These credentials are used to authenticate with GoCardless API

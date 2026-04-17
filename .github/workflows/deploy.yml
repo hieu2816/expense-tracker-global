@@ -9,7 +9,6 @@ jobs:
     runs-on: ubuntu-latest
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-      ALLOWED_ORIGINS: http://localhost:3000
       DB_URL: jdbc:postgresql://localhost:5432/postgres
       DB_USERNAME: postgres
       DB_PASSWORD: postgres
