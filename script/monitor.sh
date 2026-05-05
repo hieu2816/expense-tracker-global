@@ -18,8 +18,8 @@ LOG_FILE="/var/log/monitor.log"
 RESTART_LOCK_FILE="/tmp/backend_restart.lock"
 MAX_RESTARTS=3
 RESTART_WINDOW=300          # 5-minute window
-TELEGRAM_BOT_TOKEN="YOUR_TOKEN"
-TELEGRAM_CHAT_ID="YOUR_CHAT_ID"
+TELEGRAM_BOT_TOKEN="${TELEGRAM_BOT_TOKEN:-}"
+TELEGRAM_CHAT_ID="${TELEGRAM_CHAT_ID:-}"
 ALERT_THRESHOLD_DISK=85      # % disk usage to alert
 CLEANUP_THRESHOLD_DISK=95    # % disk usage to auto-prune
 
@@ -75,7 +75,7 @@ check_disk() {
 
     if (( disk_usage >= CLEANUP_THRESHOLD_DISK )); then
         log "CRITICAL: Disk at ${disk_usage}% — running cleanup"
-        docker system prune -af --volumes 2>/dev/null || true
+        docker system prune -af 2>/dev/null || true
         find /var/log -name "*.log" -size +100M -exec truncate -s 50M {} \; 2>/dev/null || true
         alert "WARNING" "Disk at ${disk_usage}% — auto-pruned Docker images and logs"
     elif (( disk_usage >= ALERT_THRESHOLD_DISK )); then
@@ -106,7 +106,7 @@ check_containers() {
                 fi
             fi
         else
-            docker compose restart "${failed[*]}"
+            docker compose restart "${failed[@]}"
             alert "WARNING" "Containers restarted: ${failed[*]}"
         fi
     fi
@@ -137,11 +137,11 @@ check_backend_health() {
 # --- SyncLog business logic check ---
 check_sync_health() {
     local failed_count
-    failed_count=$(docker compose exec -T database psql -U postgres -d postgres -t -c \
-        "SELECT COUNT(*) FROM sync_logs WHERE status='FAILED' AND synced_at > NOW() - INTERVAL '15 minutes';" 2>/dev/null | tr -d ' ' || echo "0")
+    failed_count=$( (docker compose exec -T -e PGPASSWORD="$DB_PASSWORD" database psql -U "$DB_USERNAME" -d "${POSTGRES_DB:-postgres}" -t -c \
+        "SELECT COUNT(*) FROM sync_logs WHERE status='FAILED' AND synced_at > NOW() - INTERVAL '15 minutes';" 2>/dev/null || echo "0") | tr -d ' ' )
 
     if (( failed_count > 0 )); then
-        local recent_failures=$(docker compose exec -T database psql -U postgres -d postgres -t -c \
+        local recent_failures=$(docker compose exec -T -e PGPASSWORD="$DB_PASSWORD" database psql -U "$DB_USERNAME" -d "${POSTGRES_DB:-postgres}" -t -c \
             "SELECT bank_config_id, error_message, synced_at FROM sync_logs WHERE status='FAILED' AND synced_at > NOW() - INTERVAL '15 minutes' ORDER BY synced_at DESC LIMIT 3;" 2>/dev/null | tr '\n' '|' || echo "query_failed")
         log "WARNING: $failed_count failed syncs in last 15 minutes"
         alert "WARNING" "$failed_count failed GoCardless syncs in last 15 min" "${recent_failures:0:1000}"

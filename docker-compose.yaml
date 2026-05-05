@@ -12,7 +12,7 @@ services:
     ports:
       - "5433:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -36,7 +36,7 @@ services:
         condition: service_healthy
     restart: always
     healthcheck:
-      test: ["CMD-SHELL", "wget --spider -q http://localhost:8080/actuator/health || exit 1"]
+      test: [ "CMD-SHELL", "curl -fsS http://localhost:8080/actuator/health >/dev/null || exit 1" ]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -53,13 +53,13 @@ services:
       - "443:443" # HTTPS port
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      - certbot-etc:/etc/letsencrypt:ro        # NEW — SSL certs (read-only)
-      - certbot-www:/var/www/certbot:ro        # NEW — challenge files (read-only)
+      - certbot-etc:/etc/letsencrypt:ro # NEW — SSL certs (read-only)
+      - certbot-www:/var/www/certbot:ro # NEW — challenge files (read-only)
     depends_on:
       - backend
     restart: always
     healthcheck:
-      test: ["CMD-SHELL", "wget --spider -q http://localhost/health || exit 1"]
+      test: [ "CMD-SHELL", "wget --spider -q http://localhost/health || exit 1" ]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -69,8 +69,8 @@ services:
     image: certbot/certbot
     container_name: expense-certbot
     volumes:
-      - certbot-etc:/etc/letsencrypt           # writes certs here
-      - certbot-www:/var/www/certbot           # writes challenge files here
+      - certbot-etc:/etc/letsencrypt # writes certs here
+      - certbot-www:/var/www/certbot # writes challenge files here
 volumes:
   expense_data-global:
   certbot-etc:

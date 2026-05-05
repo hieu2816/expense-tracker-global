@@ -43,20 +43,13 @@ export default function Dashboard() {
             const mapped = (catRes.data || [])
                 .filter((c) => c.type === 'OUT')
                 .map((c) => ({ name: c.categoryName, value: c.total }));
-
             const total = mapped.reduce((sum, c) => sum + c.value, 0);
-            console.log('mapped:', mapped);
-            console.log('total:', total);
             const main = mapped.filter((c) => c.value / total >= 0.03);
             const other = mapped.filter((c) => c.value / total < 0.03);
-            console.log('main:', main);
-            console.log('other:', other);
-
             if (other.length > 0) {
                 const othersValue = other.reduce((sum, c) => sum + c.value, 0);
                 main.push({ name: 'Others', value: othersValue });
             }
-
             setCategoryData([...main]);
 
             const monthMap = {};

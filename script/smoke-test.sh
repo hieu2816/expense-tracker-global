@@ -18,7 +18,7 @@ log "=== Smoke Test Started ==="
 
 # 1. Backend — check via nginx proxy on the exposed port
 echo -n "Backend (via nginx): "
-HTTP_CODE=$(curl -sf -o /dev/null -w "%{http_code}" --max-time 15 \
+HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 15 \
     -X POST http://localhost/api/auth/login \
     -H "Content-Type: application/json" \
     -d '{"email":"smoke@test.com","password":"wrong"}' 2>/dev/null) || HTTP_CODE="DOWN"
@@ -57,5 +57,9 @@ fi
 
 log "=== Smoke Test Completed ==="
 
-[[ $FAILED -eq 0 ]] && exit 0
-log "=== SMOKE TESTS FAILED ===" && exit 1
+if [[ $FAILED -eq 0 ]]; then
+    exit 0
+else
+    log "=== SMOKE TESTS FAILED ==="
+    exit 1
+fi

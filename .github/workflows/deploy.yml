@@ -62,6 +62,8 @@ jobs:
     env:
       TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
       TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+      LETSENCRYPT_EMAIL: ${{ secrets.LETSENCRYPT_EMAIL }}
+      TLS_DOMAIN: ${{ secrets.TLS_DOMAIN }}
     steps:
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1
@@ -72,7 +74,7 @@ jobs:
           script: |
             set -e
 
-            cd ~/expense-tracker-global
+            cd ~/expense-tracking-global
             git fetch origin main
             git reset --hard origin/main
             chmod +x mvnw
@@ -88,10 +90,18 @@ jobs:
             TELEGRAM_CHAT_ID=${{ secrets.TELEGRAM_CHAT_ID }}
             TELEGRAMEOF
 
-            # Build and start containers
+            # Build images
             docker compose build
-            docker compose up -d
             docker image prune -f
+
+            # Bootstrap TLS certificates (idempotent — skips if cert already valid)
+            chmod +x script/bootstrap-tls.sh
+            LETSENCRYPT_EMAIL="${{ secrets.LETSENCRYPT_EMAIL }}" \
+            TLS_DOMAIN="${{ secrets.TLS_DOMAIN }}" \
+            ./script/bootstrap-tls.sh
+
+            # Start all services
+            docker compose up -d
 
             # Wait for containers to be healthy before smoke tests
             # docker inspect gives us State.Status + Health without jq parsing issues
@@ -104,8 +114,8 @@ jobs:
               NGINX_STATE=$(docker inspect --format='{{.State.Status}}' expense-nginx 2>/dev/null || echo "unknown")
               NGINX_HEALTH=$(docker inspect --format='{{if .State.Health}}{{.State.Health.Status}}{{else}}no-healthcheck{{end}}' expense-nginx 2>/dev/null || echo "unknown")
               echo "Backend: state=$BACKEND_STATE health=$BACKEND_HEALTH | Nginx: state=$NGINX_STATE health=$NGINX_HEALTH"
-              if [[ "$BACKEND_STATE" == "running" && "$NGINX_STATE" == "running" ]]; then
-                echo "All containers are running!"
+              if [[ "$BACKEND_HEALTH" == "healthy" && "$NGINX_HEALTH" == "healthy" ]]; then
+                echo "All containers are healthy!"
                 break
               fi
               if [[ "$BACKEND_STATE" == "restarting" || "$NGINX_STATE" == "restarting" ]]; then
