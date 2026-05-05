@@ -74,7 +74,7 @@ jobs:
           script: |
             set -e
 
-            cd ~/expense-tracking-global
+            cd ~/expense-tracker-global
             git fetch origin main
             git reset --hard origin/main
             chmod +x mvnw
