@@ -1,6 +1,5 @@
 package com.example.expense_tracking.dto.gocardless;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Data;
 
 // Contain details about a bank account linked vid GoCardless

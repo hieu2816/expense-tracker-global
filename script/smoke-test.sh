@@ -5,6 +5,7 @@ FAILED=0
 
 TELEGRAM_BOT_TOKEN="${TELEGRAM_BOT_TOKEN:-}"
 TELEGRAM_CHAT_ID="${TELEGRAM_CHAT_ID:-}"
+DOMAIN="${TLS_DOMAIN:-spendwiser.me}"
 
 log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1"; }
 
@@ -19,7 +20,7 @@ log "=== Smoke Test Started ==="
 # 1. Backend — check via nginx proxy on the exposed port
 echo -n "Backend (via nginx): "
 HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 15 \
-    -X POST https://spendwiser.me/api/auth/login \
+    -X POST https://${DOMAIN}/api/auth/login \
     -H "Content-Type: application/json" \
     -d '{"email":"smoke@test.com","password":"wrong"}' 2>/dev/null) || HTTP_CODE="DOWN"
 if [[ "$HTTP_CODE" == "400" || "$HTTP_CODE" == "401" ]]; then

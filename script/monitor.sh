@@ -20,6 +20,7 @@ MAX_RESTARTS=3
 RESTART_WINDOW=300          # 5-minute window
 TELEGRAM_BOT_TOKEN="${TELEGRAM_BOT_TOKEN:-}"
 TELEGRAM_CHAT_ID="${TELEGRAM_CHAT_ID:-}"
+DOMAIN="${TLS_DOMAIN:-spendwiser.me}"
 ALERT_THRESHOLD_DISK=85      # % disk usage to alert
 CLEANUP_THRESHOLD_DISK=95    # % disk usage to auto-prune
 
@@ -150,7 +151,7 @@ check_sync_health() {
 
 # --- SSL certificate expiry ---
 check_ssl_expiry() {
-    local cert_file="/etc/letsencrypt/live/spendwiser.me/fullchain.pem"
+    local cert_file="/etc/letsencrypt/live/${DOMAIN}/fullchain.pem"
     if [[ -f "$cert_file" ]]; then
         local expiry_epoch
         expiry_epoch=$(openssl x509 -in "$cert_file" -noout -enddate 2>/dev/null | cut -d= -f2 | xargs -I{} date +%s -d{})

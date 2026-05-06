@@ -1,9 +1,6 @@
 package com.example.expense_tracking.dto.bank;
 
-import lombok.AllArgsConstructor;
-import lombok.Builder;
 import lombok.Data;
-import lombok.NoArgsConstructor;
 
 import java.time.LocalDate;
 

@@ -12,7 +12,7 @@ services:
     ports:
       - "5433:5432"
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
+      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER}" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -48,11 +48,13 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
     container_name: expense-nginx
+    environment:
+      TLS_DOMAIN: ${TLS_DOMAIN:-spendwiser.me}
     ports:
       - "80:80"
       - "443:443" # HTTPS port
     volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/nginx.conf:/etc/nginx/templates/nginx.conf.template:ro
       - certbot-etc:/etc/letsencrypt:ro # NEW — SSL certs (read-only)
       - certbot-www:/var/www/certbot:ro # NEW — challenge files (read-only)
     depends_on:

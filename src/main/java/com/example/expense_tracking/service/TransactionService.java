@@ -23,10 +23,8 @@ import java.io.IOException;
 import java.io.Writer;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.UUID;
-
 
 @Service
 @RequiredArgsConstructor
@@ -61,7 +59,6 @@ public class TransactionService {
             bankConfig = bankConfigRepository.findById(request.getBankConfigId())
                     .orElseThrow(() -> new ResourceNotFoundException("Bank Account not found"));
 
-
             // If there is bank. Security Check: Does user own this bank account?
             if (!bankConfig.getUser().getId().equals(user.getId())) {
                 throw new ForbiddenException("You do not own this bank account");
@@ -86,9 +83,11 @@ public class TransactionService {
         return mapToResponse(saved);
     }
 
-    public Page<TransactionResponse> getAllTransactions(User user, int page, int size, String category, LocalDateTime startDate, LocalDateTime endDate) {
+    public Page<TransactionResponse> getAllTransactions(User user, int page, int size, String category,
+            LocalDateTime startDate, LocalDateTime endDate) {
         Pageable pageable = PageRequest.of(page, size, Sort.by("transactionDate").descending());
-        Page<Transaction> transactionPage = transactionRepository.findFilteredTransactions(user, category, startDate, endDate, pageable);
+        Page<Transaction> transactionPage = transactionRepository.findFilteredTransactions(user, category, startDate,
+                endDate, pageable);
 
         return transactionPage.map(this::mapToResponse);
     }
@@ -138,7 +137,8 @@ public class TransactionService {
                 transaction.setBankConfig(bankConfig);
             }
         }
-        // Case C: If request.getAccountNumber() is NULL -> Do NOTHING (Keep old Bank/Cash)
+        // Case C: If request.getAccountNumber() is NULL -> Do NOTHING (Keep old
+        // Bank/Cash)
 
         Transaction savedTransaction = transactionRepository.save(transaction);
 
@@ -198,13 +198,14 @@ public class TransactionService {
             String category,
             LocalDateTime startDate,
             LocalDateTime endDate,
-            Writer writer
-    ) throws IOException {
+            Writer writer) throws IOException {
         Pageable pageable = PageRequest.of(0, 100000, Sort.by("transactionDate").descending());
-        Page<Transaction> page = transactionRepository.findFilteredTransactions(user, category, startDate, endDate, pageable);
+        Page<Transaction> page = transactionRepository.findFilteredTransactions(user, category, startDate, endDate,
+                pageable);
         List<Transaction> transactions = page.getContent();
 
-        try (CSVPrinter csvPrinter = new CSVPrinter(writer, CSVFormat.DEFAULT.withHeader("ID", "Date", "Type", "Category", "Amount", "Description"))) {
+        try (CSVPrinter csvPrinter = new CSVPrinter(writer,
+                CSVFormat.DEFAULT.withHeader("ID", "Date", "Type", "Category", "Amount", "Description"))) {
             for (Transaction t : transactions) {
                 csvPrinter.printRecord(
                         t.getId(),
@@ -212,15 +213,15 @@ public class TransactionService {
                         t.getType(),
                         t.getCategory() != null ? sanitizeCsvValue(t.getCategory().getName()) : "Uncategorized",
                         t.getAmount(),
-                        sanitizeCsvValue(t.getDescription())
-                );
+                        sanitizeCsvValue(t.getDescription()));
             }
         }
     }
 
     // Prevent CSV injection by prefixing dangerous characters with a single quote
     private String sanitizeCsvValue(String value) {
-        if (value == null) return "";
+        if (value == null)
+            return "";
         if (value.startsWith("=") || value.startsWith("+") || value.startsWith("-")
                 || value.startsWith("@") || value.startsWith("\t") || value.startsWith("\r")) {
             return "'" + value;

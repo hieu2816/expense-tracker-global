@@ -108,25 +108,35 @@ jobs:
             echo "Waiting for containers to be healthy..."
             timeout=120
             elapsed=0
+            
+            # Take Container ID dynamic from docker compose
+            BACKEND_ID=$(docker compose ps -q backend)
+            NGINX_ID=$(docker compose ps -q nginx)
+            
+            if [[ -z "$BACKEND_ID" || -z "$NGINX_ID" ]]; then
+              echo "❌ Critical: Could not find container IDs for backend or nginx"
+              exit 1
+            fi
+            
             while true; do
-              BACKEND_STATE=$(docker inspect --format='{{.State.Status}}' expense-backend 2>/dev/null || echo "unknown")
-              BACKEND_HEALTH=$(docker inspect --format='{{if .State.Health}}{{.State.Health.Status}}{{else}}no-healthcheck{{end}}' expense-backend 2>/dev/null || echo "unknown")
-              NGINX_STATE=$(docker inspect --format='{{.State.Status}}' expense-nginx 2>/dev/null || echo "unknown")
-              NGINX_HEALTH=$(docker inspect --format='{{if .State.Health}}{{.State.Health.Status}}{{else}}no-healthcheck{{end}}' expense-nginx 2>/dev/null || echo "unknown")
+              BACKEND_STATE=$(docker inspect --format='{{.State.Status}}' $BACKEND_ID 2>/dev/null || echo "unknown")
+              BACKEND_HEALTH=$(docker inspect --format='{{if .State.Health}}{{.State.Health.Status}}{{else}}no-healthcheck{{end}}' $BACKEND_ID 2>/dev/null || echo "unknown")
+              NGINX_STATE=$(docker inspect --format='{{.State.Status}}' $NGINX_ID 2>/dev/null || echo "unknown")
+              NGINX_HEALTH=$(docker inspect --format='{{if .State.Health}}{{.State.Health.Status}}{{else}}no-healthcheck{{end}}' $NGINX_ID 2>/dev/null || echo "unknown")
               echo "Backend: state=$BACKEND_STATE health=$BACKEND_HEALTH | Nginx: state=$NGINX_STATE health=$NGINX_HEALTH"
               if [[ "$BACKEND_HEALTH" == "healthy" && "$NGINX_HEALTH" == "healthy" ]]; then
-                echo "All containers are healthy!"
+                echo "✅ All containers are healthy!"
                 break
               fi
               if [[ "$BACKEND_STATE" == "restarting" || "$NGINX_STATE" == "restarting" ]]; then
-                echo "A container is restarting — may be a startup issue"
-                break
+                echo "⚠️ A container is stuck in restarting loop — startup issue detected!"
+                exit 1
               fi
               sleep 5
               elapsed=$((elapsed + 5))
               if (( elapsed >= timeout )); then
-                echo "Health check timed out after ${timeout}s"
-                break
+                echo "❌ Health check timed out after ${timeout}s"
+                exit 1 
               fi
             done
 
