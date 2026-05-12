@@ -155,7 +155,7 @@ export default function Landing({ onToggleTheme, themeMode }) {
                 <div className="lp-container">
                     <div className="lp-section-label">Features</div>
                     <h2 className="lp-section-title">Everything you need to manage your money</h2>
-                    <p className="lp-section-sub">Powerful features, zero complexity. ExpenseTracker does the heavy lifting so you can focus on living.</p>
+                    <p className="lp-section-sub">Powerful features, zero complexity. SpendWiser does the heavy lifting so you can focus on living.</p>
 
                     <div className="lp-features-grid">
                         {features.map((f) => (
@@ -325,7 +325,7 @@ export default function Landing({ onToggleTheme, themeMode }) {
                 <div className="lp-container" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '14px', fontWeight: 600, color: 'var(--lp-text)' }}>
                         <TrendingUp size={16} style={{ color: 'var(--lp-primary)' }} />
-                        ExpenseTracker
+                        SpendWiser
                     </div>
                     <div style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
                         <a href="#">Privacy Policy</a>

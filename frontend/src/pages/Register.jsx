@@ -36,7 +36,7 @@ const Register = () => {
                         <Wallet size={28} />
                     </div>
                     <div>
-                        <h1>ExpenseTracker</h1>
+                        <h1>SpendWiser</h1>
                         <p>Create your account to get started</p>
                     </div>
                 </div>

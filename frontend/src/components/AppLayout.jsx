@@ -91,7 +91,7 @@ export default function AppLayout({ onToggleTheme, themeMode }) {
                     </span>
                     {!collapsed && (
                         <h2 style={{ fontSize: 15, fontWeight: 700, color: 'var(--color-primary)', margin: 0, whiteSpace: 'nowrap' }}>
-                            ExpenseTracker
+                            SpendWiser
                         </h2>
                     )}
                 </div>

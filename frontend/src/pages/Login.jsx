@@ -32,7 +32,7 @@ const Login = () => {
                         <Wallet size={28} />
                     </div>
                     <div>
-                        <h1>ExpenseTracker</h1>
+                        <h1>SpendWiser</h1>
                         <p>Sign in to manage your finances</p>
                     </div>
                 </div>
