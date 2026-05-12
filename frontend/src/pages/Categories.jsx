@@ -145,6 +145,7 @@ const Categories = () => {
                     rowKey="id"
                     loading={loading}
                     pagination={false}
+                    scroll={{ x: 'max-content' }}
                     locale={{ emptyText: 'No categories yet. They get auto-created when you add transactions!' }}
                 />
             </Card>

@@ -1,11 +1,12 @@
-import { useState } from 'react';
-import { Layout, Avatar, Dropdown, Button } from 'antd';
+import { useState, useEffect } from 'react';
+import { Layout, Avatar, Dropdown, Button, Drawer, Grid } from 'antd';
 import {
     UserOutlined,
     LogoutOutlined,
     PlusOutlined,
     MenuFoldOutlined,
     MenuUnfoldOutlined,
+    MoreOutlined,
 } from '@ant-design/icons';
 import {
     LayoutDashboard,
@@ -20,6 +21,7 @@ import { useNavigate, useLocation, Outlet } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
 const { Sider, Header, Content } = Layout;
+const { useBreakpoint } = Grid;
 
 const NAV_ITEMS = [
     { key: '/app', label: 'Dashboard', icon: <LayoutDashboard size={18} /> },
@@ -39,11 +41,19 @@ const PAGE_TITLES = {
 
 export default function AppLayout({ onToggleTheme, themeMode }) {
     const [collapsed, setCollapsed] = useState(false);
+    const [drawerVisible, setDrawerVisible] = useState(false);
     const navigate = useNavigate();
     const location = useLocation();
     const { user, logout } = useAuth();
+    const screens = useBreakpoint();
 
     const currentTitle = PAGE_TITLES[location.pathname] || 'Dashboard';
+    const isMobile = !screens.md;
+
+    // Close drawer on navigation
+    useEffect(() => {
+        setDrawerVisible(false);
+    }, [location.pathname]);
 
     const userMenuItems = [
         {
@@ -65,116 +75,149 @@ export default function AppLayout({ onToggleTheme, themeMode }) {
         },
     ];
 
-    return (
-        <Layout className="app-layout">
-            {/* Sidebar */}
-            <Sider
-                trigger={null}
-                collapsible
-                collapsed={collapsed}
-                width={260}
-                style={{
-                    background: 'var(--color-bg-card)',
-                    position: 'fixed',
-                    height: '100vh',
-                    left: 0,
-                    top: 0,
-                    zIndex: 100,
-                    overflow: 'auto',
-                    borderRight: '1px solid var(--color-border)',
-                }}
-            >
-                {/* Logo */}
-                <div className="sidebar-logo" style={{ justifyContent: collapsed ? 'center' : 'flex-start', padding: collapsed ? '0' : '0 20px', gap: '10px' }}>
-                    <span style={{ color: 'var(--color-primary)', display: 'flex', alignItems: 'center', flexShrink: 0 }}>
-                        <TrendingUp size={20} />
-                    </span>
-                    {!collapsed && (
-                        <h2 style={{ fontSize: 15, fontWeight: 700, color: 'var(--color-primary)', margin: 0, whiteSpace: 'nowrap' }}>
-                            SpendWiser
-                        </h2>
-                    )}
-                </div>
+    const mobileActionsMenu = [
+        {
+            key: 'add-transaction',
+            icon: <PlusOutlined />,
+            label: 'Add Transaction',
+            onClick: () => navigate('/app/transactions'),
+        },
+        {
+            key: 'toggle-theme',
+            icon: themeMode === 'dark' ? <Sun size={16} /> : <Moon size={16} />,
+            label: `Switch to ${themeMode === 'dark' ? 'Light' : 'Dark'} Mode`,
+            onClick: onToggleTheme,
+        },
+        { type: 'divider' },
+        ...userMenuItems
+    ];
 
-                {/* Navigation */}
-                <nav>
-                    {NAV_ITEMS.map((item) => {
-                        const isActive = location.pathname === item.key;
-                        return (
-                            <div
-                                key={item.key}
-                                onClick={() => navigate(item.key)}
-                                style={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '12px',
-                                    padding: collapsed ? '10px 0' : '10px 20px',
-                                    justifyContent: collapsed ? 'center' : 'flex-start',
-                                    margin: '2px 8px',
-                                    borderRadius: 'var(--radius-md)',
-                                    cursor: 'pointer',
-                                    color: isActive ? 'var(--color-primary)' : 'var(--color-text-secondary)',
-                                    background: isActive ? 'var(--color-primary-light)' : 'transparent',
-                                    fontSize: '14px',
-                                    fontWeight: isActive ? 600 : 400,
-                                    transition: 'background 0.15s, color 0.15s',
-                                    userSelect: 'none',
-                                    border: 'none',
-                                }}
-                                onMouseEnter={(e) => {
-                                    if (!isActive) {
-                                        e.currentTarget.style.background = 'var(--color-bg-hover)';
-                                        e.currentTarget.style.color = 'var(--color-primary)';
-                                    }
-                                }}
-                                onMouseLeave={(e) => {
-                                    if (!isActive) {
-                                        e.currentTarget.style.background = 'transparent';
-                                        e.currentTarget.style.color = 'var(--color-text-secondary)';
-                                    }
-                                }}
-                            >
-                                <span style={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>{item.icon}</span>
-                                {!collapsed && item.label}
-                            </div>
-                        );
-                    })}
-                </nav>
+    const sidebarContent = (isDrawer = false) => (
+        <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+            {/* Logo */}
+            <div className="sidebar-logo" style={{ justifyContent: (collapsed && !isDrawer) ? 'center' : 'flex-start', padding: (collapsed && !isDrawer) ? '0' : '0 20px', gap: '10px' }}>
+                <span style={{ color: 'var(--color-primary)', display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+                    <TrendingUp size={20} />
+                </span>
+                {(!collapsed || isDrawer) && (
+                    <h2 style={{ fontSize: 15, fontWeight: 700, color: 'var(--color-primary)', margin: 0, whiteSpace: 'nowrap' }}>
+                        SpendWiser
+                    </h2>
+                )}
+            </div>
 
-                {/* User footer */}
-                {!collapsed && (
-                    <div style={{
-                        position: 'absolute',
-                        bottom: 0,
-                        left: 0,
-                        right: 0,
-                        padding: '16px',
-                        borderTop: '1px solid var(--color-border)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '10px',
-                    }}>
-                        <Avatar
-                            size={32}
-                            style={{ backgroundColor: 'var(--color-primary)', flexShrink: 0, fontSize: '13px', fontWeight: 600 }}
+            {/* Navigation */}
+            <nav style={{ flex: 1, overflowY: 'auto' }}>
+                {NAV_ITEMS.map((item) => {
+                    const isActive = location.pathname === item.key;
+                    return (
+                        <div
+                            key={item.key}
+                            onClick={() => navigate(item.key)}
+                            style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '12px',
+                                padding: (collapsed && !isDrawer) ? '10px 0' : '10px 20px',
+                                justifyContent: (collapsed && !isDrawer) ? 'center' : 'flex-start',
+                                margin: '2px 8px',
+                                borderRadius: 'var(--radius-md)',
+                                cursor: 'pointer',
+                                color: isActive ? 'var(--color-primary)' : 'var(--color-text-secondary)',
+                                background: isActive ? 'var(--color-primary-light)' : 'transparent',
+                                fontSize: '14px',
+                                fontWeight: isActive ? 600 : 400,
+                                transition: 'background 0.15s, color 0.15s',
+                                userSelect: 'none',
+                                border: 'none',
+                            }}
+                            onMouseEnter={(e) => {
+                                if (!isActive) {
+                                    e.currentTarget.style.background = 'var(--color-bg-hover)';
+                                    e.currentTarget.style.color = 'var(--color-primary)';
+                                }
+                            }}
+                            onMouseLeave={(e) => {
+                                if (!isActive) {
+                                    e.currentTarget.style.background = 'transparent';
+                                    e.currentTarget.style.color = 'var(--color-text-secondary)';
+                                }
+                            }}
                         >
-                            {user?.fullName?.[0]?.toUpperCase() || 'U'}
-                        </Avatar>
-                        <div style={{ overflow: 'hidden', flex: 1 }}>
-                            <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--color-text-primary)', lineHeight: 1.3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                {user?.fullName || 'User'}
-                            </div>
-                            <div style={{ fontSize: '11px', color: 'var(--color-text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                {user?.email || ''}
-                            </div>
+                            <span style={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>{item.icon}</span>
+                            {(!collapsed || isDrawer) && item.label}
+                        </div>
+                    );
+                })}
+            </nav>
+
+            {/* User footer */}
+            {(!collapsed || isDrawer) && (
+                <div style={{
+                    padding: '16px',
+                    borderTop: '1px solid var(--color-border)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '10px',
+                }}>
+                    <Avatar
+                        size={32}
+                        style={{ backgroundColor: 'var(--color-primary)', flexShrink: 0, fontSize: '13px', fontWeight: 600 }}
+                    >
+                        {user?.fullName?.[0]?.toUpperCase() || 'U'}
+                    </Avatar>
+                    <div style={{ overflow: 'hidden', flex: 1 }}>
+                        <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--color-text-primary)', lineHeight: 1.3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            {user?.fullName || 'User'}
+                        </div>
+                        <div style={{ fontSize: '11px', color: 'var(--color-text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            {user?.email || ''}
                         </div>
                     </div>
-                )}
-            </Sider>
+                </div>
+            )}
+        </div>
+    );
+
+    return (
+        <Layout className="app-layout">
+            {/* Mobile Drawer */}
+            <Drawer
+                placement="left"
+                onClose={() => setDrawerVisible(false)}
+                open={drawerVisible}
+                closable={false}
+                bodyStyle={{ padding: 0, background: 'var(--color-bg-card)' }}
+                width={260}
+            >
+                {sidebarContent(true)}
+            </Drawer>
+
+            {/* Desktop Sidebar */}
+            {!isMobile && (
+                <Sider
+                    trigger={null}
+                    collapsible
+                    collapsed={collapsed}
+                    width={260}
+                    style={{
+                        background: 'var(--color-bg-card)',
+                        position: 'fixed',
+                        height: '100vh',
+                        left: 0,
+                        top: 0,
+                        zIndex: 100,
+                        overflow: 'auto',
+                        borderRight: '1px solid var(--color-border)',
+                    }}
+                >
+                    {sidebarContent(false)}
+                </Sider>
+            )}
 
             {/* Main Area */}
             <Layout style={{
-                marginLeft: collapsed ? 80 : 260,
+                marginLeft: isMobile ? 0 : (collapsed ? 80 : 260),
                 transition: 'margin-left 0.2s',
                 minHeight: '100vh',
                 background: 'var(--color-bg-page)',
@@ -183,7 +226,7 @@ export default function AppLayout({ onToggleTheme, themeMode }) {
                 <Header style={{
                     background: 'var(--color-bg-card)',
                     borderBottom: '1px solid var(--color-border)',
-                    padding: '0 24px',
+                    padding: isMobile ? '0 16px' : '0 24px',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'space-between',
@@ -195,37 +238,46 @@ export default function AppLayout({ onToggleTheme, themeMode }) {
                     <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
                         <Button
                             type="text"
-                            icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
-                            onClick={() => setCollapsed(!collapsed)}
+                            icon={isMobile ? <MenuUnfoldOutlined /> : (collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />)}
+                            onClick={() => isMobile ? setDrawerVisible(true) : setCollapsed(!collapsed)}
+                            style={{ padding: '0 8px' }}
                         />
-                        <h1 style={{ fontSize: '18px', fontWeight: 700, color: 'var(--color-text-primary)', margin: 0 }}>
+                        <h1 style={{ fontSize: isMobile ? '16px' : '18px', fontWeight: 700, color: 'var(--color-text-primary)', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                             {currentTitle}
                         </h1>
                     </div>
 
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                        <button
-                            className="theme-toggle-btn"
-                            onClick={onToggleTheme}
-                            aria-label="Toggle theme"
-                            type="button"
-                        >
-                            {themeMode === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
-                        </button>
-                        <Button
-                            type="primary"
-                            icon={<PlusOutlined />}
-                            onClick={() => navigate('/app/transactions')}
-                        >
-                            Add Transaction
-                        </Button>
-                        <Dropdown menu={{ items: userMenuItems }} placement="bottomRight" trigger={['click']}>
-                            <Avatar
-                                style={{ backgroundColor: 'var(--color-primary)', cursor: 'pointer', fontSize: '13px', fontWeight: 600 }}
-                            >
-                                {user?.fullName?.[0]?.toUpperCase() || 'U'}
-                            </Avatar>
-                        </Dropdown>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '8px' : '12px' }}>
+                        {isMobile ? (
+                            <Dropdown menu={{ items: mobileActionsMenu }} placement="bottomRight" trigger={['click']}>
+                                <Button type="text" icon={<MoreOutlined style={{ fontSize: '20px' }} />} />
+                            </Dropdown>
+                        ) : (
+                            <>
+                                <button
+                                    className="theme-toggle-btn"
+                                    onClick={onToggleTheme}
+                                    aria-label="Toggle theme"
+                                    type="button"
+                                >
+                                    {themeMode === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+                                </button>
+                                <Button
+                                    type="primary"
+                                    icon={<PlusOutlined />}
+                                    onClick={() => navigate('/app/transactions')}
+                                >
+                                    Add Transaction
+                                </Button>
+                                <Dropdown menu={{ items: userMenuItems }} placement="bottomRight" trigger={['click']}>
+                                    <Avatar
+                                        style={{ backgroundColor: 'var(--color-primary)', cursor: 'pointer', fontSize: '13px', fontWeight: 600 }}
+                                    >
+                                        {user?.fullName?.[0]?.toUpperCase() || 'U'}
+                                    </Avatar>
+                                </Dropdown>
+                            </>
+                        )}
                     </div>
                 </Header>
 

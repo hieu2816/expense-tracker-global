@@ -227,6 +227,7 @@ const Transactions = () => {
                     dataSource={transactions}
                     rowKey="id"
                     loading={loading}
+                    scroll={{ x: 'max-content' }}
                     pagination={{
                         ...pagination,
                         showSizeChanger: true,

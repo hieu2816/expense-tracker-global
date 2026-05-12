@@ -509,9 +509,21 @@ body {
   animation: spin 1s linear infinite;
 }
 
-@media (max-width: 768px) {
+/* Tablet and below */
+@media (max-width: 992px) {
   .app-content {
     padding: var(--space-md);
+  }
+  
+  .filter-card .ant-space {
+    flex-wrap: wrap;
+  }
+}
+
+/* Mobile */
+@media (max-width: 768px) {
+  .app-content {
+    padding: var(--space-sm);
   }
 
   .stat-card .stat-value {
@@ -521,5 +533,47 @@ body {
   .auth-card {
     padding: 28px;
     margin: 0 var(--space-md);
+  }
+
+  .page-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-sm);
+  }
+
+  .page-header .ant-space {
+    width: 100%;
+    justify-content: space-between;
+  }
+  
+  .ant-table-wrapper {
+    overflow-x: auto;
+  }
+
+  /* Increase touch targets on mobile */
+  .ant-btn-icon-only {
+    width: 40px !important;
+    height: 40px !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .page-header .ant-space {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .page-header .ant-space .ant-space-item {
+    width: 100%;
+  }
+  
+  .page-header .ant-btn {
+    width: 100%;
+  }
+
+  .filter-card .ant-picker,
+  .filter-card .ant-select,
+  .filter-card .ant-btn {
+    width: 100% !important;
   }
 }
