@@ -19,17 +19,11 @@ public class SyncLog {
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "bank_config_id", nullable = false)
-    private BankConfig bankConfig;
+    @JoinColumn(name = "plaid_item_id", nullable = false)
+    private PlaidItem plaidItem;
 
     @Column(name = "synced_at")
     private LocalDateTime syncedAt;
-
-    @Column(name = "date_from")
-    private LocalDate dateFrom;
-
-    @Column(name = "date_to")
-    private LocalDate dateTo;
 
     @Column(name = "transactions_fetched")
     private Integer transactionsFetched = 0;

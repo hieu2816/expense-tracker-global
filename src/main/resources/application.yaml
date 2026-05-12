@@ -47,29 +47,19 @@ management:
 app:
   allowed-origins: http://localhost:3000,http://localhost:5173,http://localhost:5174,http://localhost:8080
 
-# GoCardless Bank Account Data API configuration
-# These credentials are used to authenticate with GoCardless API
-gocardless:
-  #  GoCardless secret ID (from GoCardless dashboard)
-  secret-id: ${GOCARDLESS_SECRET_ID:your-secret-id-here}
-  #  GoCardless secret key (from GoCardless dashboard)
-  secret-key: ${GOCARDLESS_SECRET_KEY:your-secret-key-here}
-  # GoCardless Bank Account Data API base URL
-  base-url: https://bankaccountdata.gocardless.com
-  # Where GoCardless redirects user after bank authorization
-  # This must match what config in GoCardless dashboard
-  redirect-url: ${APP_BASE_URL:http://localhost:8080}/api/banks/callback
+# Plaid configuration
+plaid:
+  client-id: ${PLAID_CLIENT_ID:your-client-id}
+  secret: ${PLAID_SECRET:your-secret}
+  environment: ${PLAID_ENV:sandbox}
+  webhook-url: ${PLAID_WEBHOOK_URL:}
+
+encryption:
+  secret-key: ${ENCRYPTION_KEY:MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=}
 
 
 # Transaction Sync Configuration
 sync:
-  # Enable/disable automatic background sync
   enabled: true
-  # How often to sync (in minutes)
   interval-minutes: 15
-  # How many days back to fetch on incremental sync
-  look-back-days: 3
-  # Only sync accounts where user was active within this many days
   active-user-days: 30
-  # How many days of history to fetch for newly linked accounts
-  initial-sync-days: 90

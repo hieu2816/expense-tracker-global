@@ -25,7 +25,7 @@ const NAV_ITEMS = [
     { key: '/app', label: 'Dashboard', icon: <LayoutDashboard size={18} /> },
     { key: '/app/transactions', label: 'Transactions', icon: <Receipt size={18} /> },
     { key: '/app/categories', label: 'Categories', icon: <Tags size={18} /> },
-    { key: '/app/banks', label: 'Bank Accounts', icon: <Landmark size={18} /> },
+    { key: '/app/banks', label: 'Banks', icon: <Landmark size={18} /> },
     { key: '/app/profile', label: 'Profile', icon: <UserOutlined /> },
 ];
 
@@ -33,7 +33,7 @@ const PAGE_TITLES = {
     '/app': 'Dashboard',
     '/app/transactions': 'Transactions',
     '/app/categories': 'Categories',
-    '/app/banks': 'Bank Accounts',
+    '/app/banks': 'Banks',
     '/app/profile': 'Profile',
 };
 

@@ -1,6 +1,6 @@
 package com.example.expense_tracking.repository;
 
-import com.example.expense_tracking.entity.BankConfig;
+import com.example.expense_tracking.entity.BankAccount;
 import com.example.expense_tracking.entity.Category;
 import com.example.expense_tracking.entity.Transaction;
 import com.example.expense_tracking.entity.TransactionType;
@@ -42,13 +42,19 @@ public interface TransactionRepository extends JpaRepository<Transaction,Long> {
     @Query("SELECT COALESCE(SUM(t.amount),0) FROM Transaction t WHERE t.user = :user AND t.type = :type")
     BigDecimal calculateTotal(@Param("user") User user, @Param("type") TransactionType type);
 
-    boolean existsByBankTransactionIdAndBankConfig(String bankTransactionId, BankConfig bankConfig);
+boolean existsByPlaidTransactionIdAndBankAccount(String plaidTransactionId, BankAccount bankAccount);
 
-    // Unlink all transactions from a bank config (set bankConfig to null)
+    // Find transaction by Plaid transaction ID - used for efficient lookups instead of loading all transactions
+    Transaction findByPlaidTransactionId(String plaidTransactionId);
+
+    // Find transaction by Plaid transaction ID and bank account - used for efficient lookups
+    Transaction findByPlaidTransactionIdAndBankAccount(String plaidTransactionId, BankAccount bankAccount);
+
+    // Unlink all transactions from a bank account (set bankAccount to null)
     // Used when user unlinks a bank account but wants to keep transaction history
     @Modifying
-    @Query("UPDATE Transaction t SET t.bankConfig = null WHERE t.bankConfig = :bankConfig")
-    void unlinkTransactionsFromBankConfig(@Param("bankConfig") BankConfig bankConfig);
+    @Query("UPDATE Transaction t SET t.bankAccount = null WHERE t.bankAccount = :bankAccount")
+    void unlinkTransactionsFromBankAccount(@Param("bankAccount") BankAccount bankAccount);
 
     // Nullify category on all transactions before deleting a category
     @Modifying

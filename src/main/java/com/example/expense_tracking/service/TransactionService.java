@@ -4,7 +4,7 @@ import com.example.expense_tracking.dto.*;
 import com.example.expense_tracking.entity.*;
 import com.example.expense_tracking.exception.ForbiddenException;
 import com.example.expense_tracking.exception.ResourceNotFoundException;
-import com.example.expense_tracking.repository.BankConfigRepository;
+import com.example.expense_tracking.repository.BankAccountRepository;
 import com.example.expense_tracking.repository.CategoryRepository;
 import com.example.expense_tracking.repository.TransactionRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -31,7 +31,7 @@ import java.util.UUID;
 public class TransactionService {
     private final TransactionRepository transactionRepository;
     private final CategoryRepository categoryRepository;
-    private final BankConfigRepository bankConfigRepository;
+    private final BankAccountRepository bankConfigRepository;
     private final ObjectMapper objectMapper;
 
     @Transactional
@@ -53,14 +53,14 @@ public class TransactionService {
                     return categoryRepository.save(newCategory);
                 });
 
-        BankConfig bankConfig = null;
+        BankAccount bankAccount = null;
         // Check if there is Bank or Cash
-        if (request.getBankConfigId() != null) {
-            bankConfig = bankConfigRepository.findById(request.getBankConfigId())
+        if (request.getBankAccountId() != null) {
+            bankAccount = bankConfigRepository.findById(request.getBankAccountId())
                     .orElseThrow(() -> new ResourceNotFoundException("Bank Account not found"));
 
             // If there is bank. Security Check: Does user own this bank account?
-            if (!bankConfig.getUser().getId().equals(user.getId())) {
+            if (!bankAccount.getUser().getId().equals(user.getId())) {
                 throw new ForbiddenException("You do not own this bank account");
             }
         }
@@ -75,8 +75,8 @@ public class TransactionService {
                 .amount(request.getAmount())
                 .description(request.getDescription())
                 .transactionDate(actualDate)
-                .bankConfig(bankConfig)
-                .bankTransactionId(manualId)
+                .bankAccount(bankAccount)
+                .plaidTransactionId(manualId)
                 .build();
 
         Transaction saved = transactionRepository.save(transaction);
@@ -123,18 +123,18 @@ public class TransactionService {
                 });
         transaction.setCategory(category);
 
-        if (request.getBankConfigId() != null) {
-            if (request.getBankConfigId() <= 0) {
+        if (request.getBankAccountId() != null) {
+            if (request.getBankAccountId() <= 0) {
                 // Case A: User sent 0 or negative -> Explicitly switch to CASH
-                transaction.setBankConfig(null);
+                transaction.setBankAccount(null);
             } else {
                 // Case B: User sent a positive ID -> Switch to NEW BANK
-                BankConfig bankConfig = bankConfigRepository.findById(request.getBankConfigId())
+                BankAccount bankAccount = bankConfigRepository.findById(request.getBankAccountId())
                         .orElseThrow(() -> new ResourceNotFoundException("Bank Account not found"));
-                if (!bankConfig.getUser().getId().equals(user.getId())) {
+                if (!bankAccount.getUser().getId().equals(user.getId())) {
                     throw new ForbiddenException("You do not own this bank account");
                 }
-                transaction.setBankConfig(bankConfig);
+                transaction.setBankAccount(bankAccount);
             }
         }
         // Case C: If request.getAccountNumber() is NULL -> Do NOTHING (Keep old

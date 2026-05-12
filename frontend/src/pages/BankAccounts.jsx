@@ -1,59 +1,111 @@
-import { useState, useEffect } from 'react';
-import { Card, Button, List, Tag, Space, Modal, Select, Spin, Empty, Table, Popconfirm, message } from 'antd';
-import { PlusOutlined, LinkOutlined, BankOutlined } from '@ant-design/icons';
-import { RefreshCw, History, Unlink } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { Button, Card, Empty, List, Modal, Popconfirm, Spin, Table, Tag, message } from 'antd';
+import { PlusOutlined } from '@ant-design/icons';
+import { RefreshCw, History, Unlink, Building2 } from 'lucide-react';
 import api from '../api/axios';
 
 const statusColor = {
-    LINKED: 'green',
+    ACTIVE: 'green',
     PENDING: 'orange',
+    REMOVED: 'red',
+    REQUIRES_UPDATE: 'gold',
     EXPIRED: 'red',
     ERROR: 'red',
+    LINKED: 'green',
 };
 
 export default function BankAccounts() {
     const [accounts, setAccounts] = useState([]);
-    const [institutions, setInstitutions] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [linkModalOpen, setLinkModalOpen] = useState(false);
+    const [linking, setLinking] = useState(false);
+    const [plaidReady, setPlaidReady] = useState(false);
+    const [syncing, setSyncing] = useState({});
     const [historyModalOpen, setHistoryModalOpen] = useState(false);
     const [selectedAccount, setSelectedAccount] = useState(null);
     const [syncHistory, setSyncHistory] = useState([]);
     const [historyLoading, setHistoryLoading] = useState(false);
-    const [selectedInstitution, setSelectedInstitution] = useState(null);
-    const [selectedCountry, setSelectedCountry] = useState('GB');
-    const [linking, setLinking] = useState(false);
-    const [syncing, setSyncing] = useState({});
+    useEffect(() => {
+        loadAccounts();
+    }, []);
 
-    useEffect(() => { loadAccounts(); }, []);
+    useEffect(() => {
+        const scriptId = 'plaid-link-script';
+        if (window.Plaid) {
+            setPlaidReady(true);
+            return undefined;
+        }
+
+        if (document.getElementById(scriptId)) {
+            return undefined;
+        }
+
+        const script = document.createElement('script');
+        script.id = scriptId;
+        script.src = 'https://cdn.plaid.com/link/v2/stable/link-initialize.js';
+        script.async = true;
+        script.onload = () => setPlaidReady(true);
+        script.onerror = () => message.error('Failed to load Plaid Link');
+        document.body.appendChild(script);
+
+        return () => {
+            // Keep the script loaded for the full app session.
+        };
+    }, []);
 
     const loadAccounts = async () => {
         setLoading(true);
         try {
             const response = await api.get('/banks');
             setAccounts(response.data || []);
-        } catch { /* silent */ }
-        finally { setLoading(false); }
+        } catch {
+            message.error('Failed to load bank accounts');
+        } finally {
+            setLoading(false);
+        }
     };
 
-    const loadInstitutions = async (country = 'GB') => {
-        try {
-            const response = await api.get('/banks/institutions', { params: { country } });
-            setInstitutions(response.data || []);
-        } catch { /* silent */ }
-    };
-
-    const handleLink = async () => {
-        if (!selectedInstitution) return;
+    const openPlaidLink = async () => {
         setLinking(true);
         try {
-            const response = await api.post('/banks/link', {
-                institutionId: selectedInstitution,
-                countryCode: selectedCountry,
+            const response = await api.post('/banks/link');
+            const linkToken = response.data?.linkToken;
+            if (!linkToken) {
+                message.error('Missing Plaid link token');
+                return;
+            }
+
+            if (!window.Plaid) {
+                message.error('Plaid Link is still loading. Please try again.');
+                return;
+            }
+
+            const handler = window.Plaid.create({
+                token: linkToken,
+                onSuccess: async (publicToken) => {
+                    await completePlaidLink(publicToken);
+                    handler.exit();
+                },
+                onExit: () => {
+                    message.info('Plaid Link closed');
+                },
             });
-            if (response.data?.link) window.location.href = response.data.link;
-        } catch { /* silent */ }
-        finally { setLinking(false); }
+
+            handler.open();
+        } catch {
+            message.error('Failed to start Plaid Link');
+        } finally {
+            setLinking(false);
+        }
+    };
+
+    const completePlaidLink = async (publicToken) => {
+        try {
+            await api.post('/banks/link/complete', { publicToken });
+            message.success('Bank linked');
+            loadAccounts();
+        } catch {
+            message.error('Failed to complete bank linking');
+        }
     };
 
     const handleSync = async (id) => {
@@ -62,8 +114,11 @@ export default function BankAccounts() {
             const response = await api.post(`/banks/${id}/sync`);
             message.success(`Synced! ${response.data?.transactionsNew || 0} new transactions`);
             loadAccounts();
-        } catch { /* silent */ }
-        finally { setSyncing((s) => ({ ...s, [id]: false })); }
+        } catch {
+            message.error('Failed to sync bank');
+        } finally {
+            setSyncing((s) => ({ ...s, [id]: false }));
+        }
     };
 
     const handleUnlink = async (id) => {
@@ -83,27 +138,26 @@ export default function BankAccounts() {
         try {
             const response = await api.get(`/banks/${account.id}/sync-history`, { params: { page: 0, size: 10 } });
             setSyncHistory(response.data?.content || []);
-        } catch { /* silent */ }
-        finally { setHistoryLoading(false); }
+        } catch {
+            message.error('Failed to load sync history');
+        } finally {
+            setHistoryLoading(false);
+        }
     };
 
-    const historyColumns = [
+    const historyColumns = useMemo(() => ([
         { title: 'Date', dataIndex: 'syncedAt', key: 'date', render: (d) => new Date(d).toLocaleString() },
         { title: 'Status', dataIndex: 'status', key: 'status', render: (s) => <Tag color={s === 'SUCCESS' ? 'green' : 'red'}>{s}</Tag> },
         { title: 'Fetched', dataIndex: 'transactionsFetched', key: 'fetched' },
         { title: 'New', dataIndex: 'transactionsNew', key: 'new' },
         { title: 'Error', dataIndex: 'errorMessage', key: 'error', ellipsis: true, render: (e) => e || '—' },
-    ];
+    ]), []);
 
     return (
         <div>
             <div className="page-header">
                 <h1>Bank Accounts</h1>
-                <Button
-                    type="primary"
-                    icon={<PlusOutlined />}
-                    onClick={() => { setLinkModalOpen(true); loadInstitutions(selectedCountry); }}
-                >
+                <Button type="primary" icon={<PlusOutlined />} loading={linking} disabled={!plaidReady} onClick={openPlaidLink}>
                     Link Bank
                 </Button>
             </div>
@@ -113,7 +167,7 @@ export default function BankAccounts() {
             ) : accounts.length === 0 ? (
                 <Card style={{ textAlign: 'center', padding: 40 }}>
                     <Empty description="No bank accounts linked yet">
-                        <Button type="primary" icon={<LinkOutlined />} onClick={() => { setLinkModalOpen(true); loadInstitutions(selectedCountry); }}>
+                        <Button type="primary" onClick={openPlaidLink} loading={linking} disabled={!plaidReady}>
                             Link Your First Bank
                         </Button>
                     </Empty>
@@ -126,8 +180,18 @@ export default function BankAccounts() {
                         <List.Item>
                             <Card
                                 actions={[
-                                    <Button key="sync" type="text" icon={<RefreshCw size={14} className={syncing[account.id] ? 'spin' : ''} />} onClick={() => handleSync(account.id)} disabled={account.status !== 'LINKED'}>Sync</Button>,
-                                    <Button key="history" type="text" icon={<History size={14} />} onClick={() => showHistory(account)}>History</Button>,
+                                    <Button
+                                        key="sync"
+                                        type="text"
+                                        icon={<RefreshCw size={14} className={syncing[account.id] ? 'spin' : ''} />}
+                                        onClick={() => handleSync(account.id)}
+                                        disabled={account.status === 'REMOVED'}
+                                    >
+                                        Sync
+                                    </Button>,
+                                    <Button key="history" type="text" icon={<History size={14} />} onClick={() => showHistory(account)}>
+                                        History
+                                    </Button>,
                                     <Popconfirm key="unlink" title="Unlink this bank?" description="Transactions will be preserved." onConfirm={() => handleUnlink(account.id)}>
                                         <Button type="text" danger icon={<Unlink size={14} />}>Unlink</Button>
                                     </Popconfirm>,
@@ -138,14 +202,17 @@ export default function BankAccounts() {
                                         account.institutionLogo
                                             ? <img src={account.institutionLogo} alt="" style={{ width: 40, height: 40, borderRadius: 8 }} />
                                             : <div style={{ width: 40, height: 40, borderRadius: 8, background: 'var(--color-primary-light)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                                <BankOutlined style={{ fontSize: 18, color: 'var(--color-primary)' }} />
+                                                <Building2 size={18} color="var(--color-primary)" />
                                             </div>
                                     }
-                                    title={<Space><span>{account.institutionName || 'Bank Account'}</span><Tag color={statusColor[account.status]}>{account.status}</Tag></Space>}
+                                    title={<span>{account.institutionName || 'Bank Account'}</span>}
                                     description={
                                         <div>
-                                            {account.maskedIban && <div>IBAN: {account.maskedIban}</div>}
-                                            {account.accountName && <div>Owner: {account.accountName}</div>}
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                                                <Tag color={statusColor[account.status] || 'blue'}>{account.status}</Tag>
+                                            </div>
+                                            {account.maskedIban && <div>Mask: {account.maskedIban}</div>}
+                                            {account.accountName && <div>Account: {account.accountName}</div>}
                                             {account.lastSyncedAt && <div style={{ color: 'var(--color-text-muted)', fontSize: 12, marginTop: 4 }}>Last synced: {new Date(account.lastSyncedAt).toLocaleString()}</div>}
                                         </div>
                                     }
@@ -156,41 +223,8 @@ export default function BankAccounts() {
                 />
             )}
 
-            <Modal title="Link a Bank Account" open={linkModalOpen} onCancel={() => setLinkModalOpen(false)} onOk={handleLink} confirmLoading={linking} okText="Connect Bank">
-                <Space direction="vertical" style={{ width: '100%', marginTop: 16 }} size="middle">
-                    <div>
-                        <label style={{ fontWeight: 500, marginBottom: 4, display: 'block' }}>Country</label>
-                        <Select
-                            value={selectedCountry}
-                            onChange={(val) => { setSelectedCountry(val); loadInstitutions(val); }}
-                            style={{ width: '100%' }}
-                            options={[
-                                { label: 'United Kingdom', value: 'GB' },
-                                { label: 'Germany', value: 'DE' },
-                                { label: 'France', value: 'FR' },
-                                { label: 'Netherlands', value: 'NL' },
-                                { label: 'Ireland', value: 'IE' },
-                                { label: 'Spain', value: 'ES' },
-                                { label: 'Italy', value: 'IT' },
-                            ]}
-                        />
-                    </div>
-                    <div>
-                        <label style={{ fontWeight: 500, marginBottom: 4, display: 'block' }}>Bank</label>
-                        <Select
-                            placeholder="Select your bank"
-                            showSearch
-                            optionFilterProp="label"
-                            style={{ width: '100%' }}
-                            onChange={setSelectedInstitution}
-                            options={institutions.map((inst) => ({ label: inst.name, value: inst.id }))}
-                        />
-                    </div>
-                </Space>
-            </Modal>
-
             <Modal
-                title={`Sync History — ${selectedAccount?.institutionName || 'Bank'}`}
+                title={`Sync History${selectedAccount?.institutionName ? ` — ${selectedAccount.institutionName}` : ''}`}
                 open={historyModalOpen}
                 onCancel={() => setHistoryModalOpen(false)}
                 footer={null}

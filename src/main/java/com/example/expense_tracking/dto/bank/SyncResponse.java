@@ -7,27 +7,27 @@ import lombok.NoArgsConstructor;
 
 import java.time.LocalDate;
 
-// Response for POST /api/banks/{id}/sync
+// Response for manual bank sync.
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
 public class SyncResponse {
-    // Sync result: SUCCESS or FAILED
+    // Sync status.
     private String status;
 
-    // Start date that was synced
+    // Start date used for the legacy sync path.
     private LocalDate dateFrom;
 
-    // End date that was synced
+    // End date used for the legacy sync path.
     private LocalDate dateTo;
 
-    // Total transactions returned by the bank
+    // Total transactions fetched.
     private int transactionsFetched;
 
-    // New transactions saved (excluding duplicates)
+    // New transactions saved.
     private int transactionsNew;
 
-    // Error message if sync failed (status = FAILED)
+    // Error text when sync fails.
     private String errorMessage;
 }

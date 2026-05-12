@@ -21,11 +21,13 @@ import org.springframework.web.bind.annotation.RestController;
 public class UserController {
     private final UserService userService;
 
+    // Return the current user's profile.
     @GetMapping("/profile")
     public ResponseEntity<UserProfileResponse> getProfile(@AuthenticationPrincipal User user) {
         return ResponseEntity.ok(userService.getProfile(user));
     }
 
+    // Update the current user's profile.
     @PutMapping("/profile")
     public ResponseEntity<UserProfileResponse> updateProfile(
             @AuthenticationPrincipal User user,
@@ -33,6 +35,7 @@ public class UserController {
         return ResponseEntity.ok(userService.updateProfile(user, request));
     }
 
+    // Change the current user's password.
     @PutMapping("/change-password")
     public ResponseEntity<String> changePassword(
             @AuthenticationPrincipal User user,

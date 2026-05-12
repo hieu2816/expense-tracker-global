@@ -7,40 +7,39 @@ import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
 
-// Response for GET /api/banks and GET /api/banks/{id}
-// Represents a user's linked bank account with masked IBAN for security
+// Response for reading linked bank accounts.
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
 public class BankAccountResponse {
-    // Internal ID of the bank config
+    // Internal account id.
     private Long id;
 
-    // GoCardless institution ID
+    // Plaid institution id.
     private String institutionId;
 
-    // Human-readable bank name
+    // Bank display name.
     private String institutionName;
 
-    // URL to bank's logo image
+    // Bank logo URL.
     private String institutionLogo;
 
-    // Masked IBAN (e.g. "DE** **** **** 1234")
+    // Masked account number.
     private String maskedIban;
 
-    // Account holder name
+    // Account name shown to the user.
     private String accountName;
 
-    // Current status: PENDING, LINKED, EXPIRED, ERROR
+    // Current account status.
     private String status;
 
-    // When this account was last synced
+    // Last time this account synced.
     private LocalDateTime lastSyncedAt;
 
-    // When the bank access authorization expires
+    // Authorization expiration time.
     private LocalDateTime accessExpiresAt;
 
-    // When this bank account was linked
+    // When the account was created.
     private LocalDateTime createdAt;
 }

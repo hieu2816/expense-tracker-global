@@ -2,9 +2,12 @@ package com.example.expense_tracking.controller;
 
 import com.example.expense_tracking.dto.SyncLogResponse;
 import com.example.expense_tracking.dto.bank.*;
-import com.example.expense_tracking.dto.gocardless.GCInstitution;
+import com.example.expense_tracking.dto.webhook.PlaidWebhookRequest;
 import com.example.expense_tracking.entity.User;
+import com.example.expense_tracking.repository.PlaidItemRepository;
 import com.example.expense_tracking.service.BankLinkingService;
+import com.example.expense_tracking.service.WebhookService;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.data.domain.Page;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
@@ -18,7 +21,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.Map;
 
-// REST controller for bank account operations
+// Expose bank-linking and sync endpoints.
 
 @RestController
 @RequestMapping("/api/banks")
@@ -27,48 +30,30 @@ import java.util.Map;
 @Validated
 public class BankController {
     private final BankLinkingService bankLinkingService;
+    private final WebhookService webhookService;
+    private final ObjectMapper objectMapper;
+    private final PlaidItemRepository PlaidItemRepository;
 
-    // Lust available banks/institutions for linking
-    // Get /api/banks/institutions?country=GB
-    @GetMapping("/institutions")
-    public ResponseEntity<List<GCInstitution>> getInstitutions(
-            @RequestParam(defaultValue = "GB") String country) {
-        log.info("Fetching institutions for country: {}", country);
-        List<GCInstitution> institutions = bankLinkingService.getInstitutions(country);
-        return ResponseEntity.ok(institutions);
-    }
-
-    // Start the bank linking process
-    // POST /api/banks/link
+    // Start the Plaid Link flow.
     @PostMapping("/link")
     public ResponseEntity<LinkBankResponse> linkBank(
+            @AuthenticationPrincipal User user) {
+        log.info("User {} starting bank linking", user.getUsername());
+
+        LinkBankResponse response = bankLinkingService.startLinking(user, null, null);
+        return ResponseEntity.ok(response);
+    }
+
+    // Finish the Plaid Link flow after the frontend returns a public token.
+    @PostMapping("/link/complete")
+    public ResponseEntity<Map<String, String>> completeLinking(
             @AuthenticationPrincipal User user,
-            @Valid @RequestBody LinkBankRequest linkBankRequest) {
-        log.info("User {} starting bank linking for institution: {}",
-                user.getUsername(), linkBankRequest.getInstitutionId());
-
-        LinkBankResponse response = bankLinkingService.startLinking(user, linkBankRequest.getInstitutionId(), linkBankRequest.getCountryCode());
-        return ResponseEntity.ok(response);
+            @RequestBody PlaidExchangeRequest request) {
+        bankLinkingService.completeLinking(user, request);
+        return ResponseEntity.ok(Map.of("message", "Bank linked successfully"));
     }
 
-    // Handle callback from GoCardless after user authorizes
-    // GET /api/banks/callback?ref=user_123_1234567890
-    // This endpoint is called bu GoCardless redirect after the user completes (or cancels) the bank linking process
-    @GetMapping("/callback")
-    public ResponseEntity<CallbackResponse> handleCallback(@RequestParam String ref) {
-        log.info("Received callback with ref {}", ref);
-
-        CallbackResponse response = bankLinkingService.processCallback(ref);
-        if ("FAILED".equals(response.getStatus())) {
-            // Return 200 even on failure so frontend can show error message
-            return ResponseEntity.ok(response);
-        }
-
-        return ResponseEntity.ok(response);
-    }
-
-    // List all bank account for the current user
-    // GET /api/banks
+    // List all bank accounts for the current user.
     @GetMapping
     public ResponseEntity<List<BankAccountResponse>> getUserBanks(
             @AuthenticationPrincipal User user) {
@@ -78,8 +63,7 @@ public class BankController {
         return ResponseEntity.ok(accounts);
     }
 
-    // Get details of a specific bank account
-    // GET /api/banks/{id}
+    // Get one bank account by id.
     @GetMapping("/{id}")
     public ResponseEntity<BankAccountResponse> getBankAccount(
             @AuthenticationPrincipal User user,
@@ -94,8 +78,7 @@ public class BankController {
         return ResponseEntity.ok(account);
     }
 
-    // Manually trigger transactions sync for a bank account
-    // POST /api/banks/{id}/sync
+    // Manually trigger transaction sync for one bank account.
     @PostMapping("/{id}/sync")
     public ResponseEntity<SyncResponse> syncBankAccount(
             @AuthenticationPrincipal User user,
@@ -106,8 +89,7 @@ public class BankController {
         return ResponseEntity.ok(response);
     }
 
-    // Unlink a bank account (remove the bank connection but keeps all transactions)
-    // DELETE /api/banks/{id}
+    // Unlink a bank account while keeping transactions.
     @DeleteMapping("/{id}")
     public ResponseEntity<Map<String, String>> unlinkBank(
             @AuthenticationPrincipal User user,
@@ -122,8 +104,7 @@ public class BankController {
         return ResponseEntity.ok(Map.of("message", "Bank unlinked successfully"));
     }
 
-    // Get sync history for a specific bank account
-    // GET /api/banks/{id}/sync-history?page=0&size=10
+// Return sync history for one bank account.
     @GetMapping("/{id}/sync-history")
     public ResponseEntity<Page<SyncLogResponse>> getSyncHistory(
             @AuthenticationPrincipal User user,
@@ -133,5 +114,23 @@ public class BankController {
         log.debug("Fetching sync history for bank account {} by user {}", id, user.getEmail());
         Page<SyncLogResponse> history = bankLinkingService.getSyncHistory(user, id, page, size);
         return ResponseEntity.ok(history);
+    }
+
+    // Plaid webhook endpoint - called when events occur (new transactions, errors, etc.)
+    @PostMapping("/webhook")
+    public ResponseEntity<Map<String, String>> handleWebhook(
+            @RequestBody String rawBody,
+            @RequestHeader Map<String, String> headers) {
+        
+        log.info("Received Plaid webhook");
+        
+        try {
+            PlaidWebhookRequest webhook = objectMapper.readValue(rawBody, PlaidWebhookRequest.class);
+            webhookService.handleWebhook(webhook, headers);
+            return ResponseEntity.ok(Map.of("status", "received"));
+        } catch (Exception e) {
+            log.error("Failed to process webhook: {}", e.getMessage());
+            return ResponseEntity.ok(Map.of("status", "error"));
+        }
     }
 }

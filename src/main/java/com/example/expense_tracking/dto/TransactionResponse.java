@@ -14,10 +14,21 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @Builder
 public class TransactionResponse {
+    // Transaction id.
     private Long id;
+
+    // Category info.
     private CategoryDTO category;
+
+    // Money amount.
     private BigDecimal amount;
+
+    // IN or OUT.
     private TransactionType type;
+
+    // Optional description.
     private String description;
+
+    // Transaction timestamp.
     private LocalDateTime transactionDate;
 }

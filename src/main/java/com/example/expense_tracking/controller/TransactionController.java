@@ -27,6 +27,7 @@ import java.util.List;
 public class TransactionController {
     private final TransactionService transactionService;
 
+    // Create a manual transaction.
     @PostMapping
     public ResponseEntity<TransactionResponse> createTransaction(
             @AuthenticationPrincipal User user,
@@ -34,6 +35,7 @@ public class TransactionController {
         return ResponseEntity.ok(transactionService.createTransaction(request, user));
     }
 
+    // List transactions with filters and pagination.
     @GetMapping
     public ResponseEntity<Page<TransactionResponse>> getAllTransactions(
             @AuthenticationPrincipal User user,
@@ -45,6 +47,7 @@ public class TransactionController {
         return ResponseEntity.ok(transactionService.getAllTransactions(user, page, size, category, startDate, endDate));
     }
 
+    // Update one transaction.
     @PutMapping("/{id}")
     public ResponseEntity<TransactionResponse> updateTransaction(
             @AuthenticationPrincipal User user,
@@ -53,6 +56,7 @@ public class TransactionController {
         return ResponseEntity.ok(transactionService.updateTransaction(id, request, user));
     }
 
+    // Delete one transaction.
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteTransaction(
             @AuthenticationPrincipal User user,
@@ -61,16 +65,19 @@ public class TransactionController {
         return ResponseEntity.noContent().build();
     }
 
+    // Return dashboard summary stats.
     @GetMapping("/dashboard")
     public ResponseEntity<DashBoardResponse> getDashBoardStats(@AuthenticationPrincipal User user) {
         return ResponseEntity.ok(transactionService.getDashBoardStats(user));
     }
 
+    // Return category totals for the current user.
     @GetMapping("/category-summary")
     public ResponseEntity<List<CategorySummaryResponse>> getCategorySummary(@AuthenticationPrincipal User user) {
         return ResponseEntity.ok(transactionService.getCategorySummary(user));
     }
 
+    // Export filtered transactions as CSV.
     @GetMapping("/export")
     public void exportToCsv(
             @AuthenticationPrincipal User user,

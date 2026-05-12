@@ -38,7 +38,7 @@ public class SecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/auth/**").permitAll()
-                        .requestMatchers("/api/banks/callback").permitAll()
+                        .requestMatchers("/api/banks/webhook").permitAll()
 
                         // Permit actuator endpoints for health checks and monitoring
                         .requestMatchers("/actuator/health/**").permitAll()

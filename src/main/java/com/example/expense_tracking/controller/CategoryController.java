@@ -21,8 +21,7 @@ import java.util.Map;
 public class CategoryController {
     private final CategoryService categoryService;
 
-    // List all categories for the current user
-    // GET /api/categories
+    // List all categories for the current user.
     @GetMapping
     public ResponseEntity<List<CategoryDTO>> getUserCategories(
             @AuthenticationPrincipal User user) {
@@ -31,8 +30,7 @@ public class CategoryController {
         return ResponseEntity.ok(categories);
     }
 
-    // Create a new category
-    // POST /api/categories
+    // Create a new category.
     @PostMapping
     public ResponseEntity<CategoryDTO> createCategory(
             @AuthenticationPrincipal User user,
@@ -42,8 +40,7 @@ public class CategoryController {
         return ResponseEntity.ok(category);
     }
 
-    // Update a category
-    // PUT /api/categories/{id}
+    // Update a category.
     @PutMapping("/{id}")
     public ResponseEntity<CategoryDTO> updateCategory(
             @AuthenticationPrincipal User user,
@@ -54,8 +51,7 @@ public class CategoryController {
         return ResponseEntity.ok(category);
     }
 
-    // Delete a category
-    // DELETE /api/categories/{id}
+    // Delete a category.
     @DeleteMapping("/{id}")
     public ResponseEntity<Map<String, String>> deleteCategory(
             @AuthenticationPrincipal User user,

@@ -11,7 +11,7 @@ import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "transactions", uniqueConstraints = {
-        @UniqueConstraint(columnNames = {"bank_transaction_id", "bank_config_id"})
+        @UniqueConstraint(columnNames = {"plaid_transaction_id", "bank_account_id"})
 })
 @Builder
 @NoArgsConstructor
@@ -27,8 +27,8 @@ public class Transaction {
     private User user;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "bank_config_id")
-    private BankConfig bankConfig;
+    @JoinColumn(name = "bank_account_id")
+    private BankAccount bankAccount;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "category_id")
@@ -50,8 +50,14 @@ public class Transaction {
     @Column(nullable = false)
     private TransactionType type;
 
-    @Column(name = "bank_transaction_id")
-    private String bankTransactionId;
+    @Column(name = "plaid_transaction_id")
+    private String plaidTransactionId;
+
+    @Column(name = "is_deleted")
+    private Boolean isDeleted = false;
+
+    @Column(name = "deleted_at")
+    private LocalDateTime deletedAt;
 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)

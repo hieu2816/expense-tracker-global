@@ -4,12 +4,12 @@ import lombok.Data;
 
 import java.time.LocalDate;
 
-// Request body for POST /api/banks/{id}/sync (Use when user wants to sync transactions from linked bank accounts)
+// Request body for manual bank sync.
 @Data
 public class SyncRequest {
-    // Start date for syncing transactions (inclusive)
+    // Start date for the old date-based sync.
     private LocalDate dateFrom;
 
-    // End date for syncing transactions (inclusive)
+    // End date for the old date-based sync.
     private LocalDate dateTo;
 }

@@ -10,17 +10,25 @@ import java.time.LocalDateTime;
 
 @Data
 public class TransactionRequest {
+    // Category name chosen by the user.
     @NotNull(message = "Category name cannot be empty")
     private String category;
 
+    // Transaction amount.
     @NotNull(message = "Amount is required")
     @Positive(message = "Amount must be greater than zero")
     private BigDecimal amount;
 
+    // Direction of the money flow.
     @NotNull(message = "Type is required (IN/OUT)")
     private TransactionType type;
+
+    // Optional description.
     private String description;
+
+    // Optional transaction timestamp.
     private LocalDateTime transactionDate;
 
-    private Long bankConfigId;
+    // Bank account id for manual transactions.
+    private Long bankAccountId;
 }
