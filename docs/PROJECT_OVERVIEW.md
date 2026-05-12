@@ -1,7 +1,7 @@
 # Expense Tracking Global — Project Overview
 
 > **Audience:** Non-technical stakeholders, product managers, new team members  
-> **Last Updated:** 2026-03-08
+> **Last Updated:** 2026-05-12
 
 ---
 
@@ -9,7 +9,7 @@
 
 A personal finance management system that helps users track their income and expenses. Users can record transactions manually or connect their bank accounts to automatically import transactions in the background.
 
-The system was originally built for Vietnamese banks (via Casso webhook) and has been migrated to support EU/UK banks via GoCardless Open Banking.
+The system was originally built for Vietnamese banks (via Casso webhook), then migrated to GoCardless, and is now powered by **Plaid Open Banking** for global bank connectivity and real-time transaction webhooks.
 
 ---
 
@@ -19,8 +19,8 @@ The system was originally built for Vietnamese banks (via Casso webhook) and has
 |---|-------|--------|---------|
 | 1 | Core Foundation | ✅ Done | Database, authentication, user management |
 | 2 | Business Logic | ✅ Done | Transaction management, categories, reports, export |
-| 3 | Bank Integration | ✅ Done | GoCardless Open Banking, auto-sync, scheduler |
-| 4 | Frontend & Real-time | ✅ Done | React SPA built — auth, dashboard, CRUD, bank linking. WebSocket pending |
+| 3 | Bank Integration | ✅ Done | Plaid Open Banking, Plaid Link, Real-time Webhooks |
+| 4 | Frontend & Real-time | ✅ Done | React SPA built — auth, dashboard, CRUD, bank linking. |
 | 5 | DevSecOps & Deploy | ✅ Done | Docker Compose, GitHub Actions CI/CD, Nginx, Certbot, EC2 |
 
 ---
@@ -69,38 +69,31 @@ The system was originally built for Vietnamese banks (via Casso webhook) and has
 
 ---
 
-### 🏦 Phase 3: Bank Integration (GoCardless)
+### 🏦 Phase 3: Bank Integration (Plaid)
 
 | Feature | Description |
 |---------|-------------|
-| **Browse Banks** | See available banks by country (Revolut, Barclays, HSBC, etc.) |
-| **Link Bank** | Connect a bank via secure redirect to the bank's website |
+| **Browse Banks** | Select banks via the interactive Plaid Link widget |
+| **Link Bank** | Connect securely without leaving the app |
 | **Initial Import** | Automatically imports 90 days of transaction history on first link |
-| **Auto Sync** | Background job checks for new transactions every 15 minutes |
-| **Manual Sync** | Pull latest transactions on demand with custom date range |
+| **Auto Sync** | Real-time transaction synchronization driven by Plaid Webhooks |
+| **Manual Sync** | Pull latest transactions on demand |
 | **Sync History** | View past sync attempts, results, and errors |
 | **Unlink Bank** | Disconnect a bank while keeping all imported transactions |
-| **Smart Filtering** | Skips syncing for users inactive for 30+ days |
-| **Expiry Detection** | Detects expired bank access and marks accounts accordingly |
+| **Expiry Detection** | Detects expired bank access via webhooks and marks accounts for re-auth |
 
 **Bank linking flow — simplified:**
-
-```
 1. User clicks "Link Bank"
-2. Selects their bank (e.g., Revolut)
-3. Redirected to bank's own website to authorize
-4. Bank redirects back to our system
-5. System imports 90 days of transaction history
-6. Background scheduler keeps syncing every 15 minutes
-```
+2. Plaid Link widget opens securely inside the app
+3. User selects their bank and authorizes access
+4. Widget succeeds and backend stores the secure access token
+5. System imports transaction history
+6. **Webhooks** listen for new transactions 24/7 and sync them instantly.
 
-**Why GoCardless instead of Casso?**
-- Casso only supports Vietnamese banks and requires downloading their app
-- GoCardless supports 2,500+ banks across 31 EU/UK countries
-- GoCardless uses Open Banking (PSD2), a regulated standard
-- Pull-based model (we fetch transactions) instead of push-based (webhook)
-
-**Deduplication:** When syncing overlapping date ranges, the system prevents duplicate transactions by checking the bank's unique transaction ID + bank account combination.
+**Why Plaid instead of Casso or GoCardless?**
+- Casso only supports Vietnamese banks.
+- Plaid provides superior global coverage (US, UK, EU, Canada).
+- Plaid supports real-time **Webhooks**, allowing our system to receive instant notifications when new transactions hit the user's bank, eliminating the need for aggressive polling.
 
 ---
 
@@ -114,7 +107,7 @@ A React web application that connects to the backend API:
 | **Dashboard** | Income/expense/balance cards, spending pie chart, recent transactions |
 | **Transactions** | Full table with filtering, pagination, add/edit/delete, CSV export |
 | **Categories** | Manage spending categories with emoji icons |
-| **Bank Accounts** | Link banks, sync transactions, view sync history, unlink |
+| **Bank Accounts** | Link banks via Plaid widget, sync transactions, view history, unlink |
 | **Profile** | Edit display name and change password |
 
 **How it works:** User opens the web app → logs in → receives a JWT token → token is automatically included in every API request → pages load data from the backend and display it in a professional UI.
@@ -141,7 +134,7 @@ A React web application that connects to the backend API:
 
 ## How the System Works — Big Picture
 
-```
+```text
 ┌──────────────┐        ┌────────────────────────┐        ┌────────────┐
 │   React SPA  │  JWT   │                        │  SQL   │            │
 │   (Vite)     │───────▶│   Expense Tracker API  │───────▶│ PostgreSQL │
@@ -149,21 +142,22 @@ A React web application that connects to the backend API:
 │  port 5173   │  JSON  │   port 8080            │        │ 5433:5432* │
 └──────────────┘        └───────────┬────────────┘        └────────────┘
                                     │
-                              Every 15 min
+                              Webhooks (Push) &
+                              Manual Sync (Pull)
                                     │
                                     ▼
-                        ┌────────────────────────┐
-                        │   GoCardless API        │
-                        │   (Open Banking)        │
-                        │                        │
-                        │   2,500+ EU/UK banks   │
-                        └────────────────────────┘
+                         ┌────────────────────────┐
+                         │       Plaid API        │
+                         │     (Open Banking)     │
+                         │                        │
+                         │   Global Bank Access   │
+                         └────────────────────────┘
 ```
 
 1. **User registers and logs in** → receives a JWT token
 2. **Manual tracking:** User creates transactions by hand (always available)
-3. **Bank linking:** User connects their bank → system imports 90 days of history
-4. **Auto-sync:** Every 15 minutes, the scheduler pulls new transactions from linked banks
+3. **Bank linking:** User connects their bank via Plaid → system imports 90 days of history
+4. **Auto-sync:** Plaid sends webhooks when new transactions are available, triggering instant sync
 5. **Dashboard:** User views total income, expenses, and balance
 6. **Export:** User downloads their data as CSV
 
@@ -175,8 +169,9 @@ A React web application that connects to the backend API:
 User
  ├── has many Transactions (manual or bank-imported)
  ├── has many Categories (auto-created per user)
- └── has many BankConfigs (linked bank accounts)
-      └── has many SyncLogs (sync history per account)
+ └── has many PlaidItems (linked bank connections)
+      └── has many BankAccounts (individual accounts within a bank)
+           └── has many SyncLogs (sync history per account)
 ```
 
 ---
@@ -189,8 +184,8 @@ User
 | User Profile | 3 | JWT | View, Update, Change Password |
 | Transactions | 6 | JWT | CRUD, Dashboard, CSV Export |
 | Categories | 4 | JWT | List, Create, Update, Delete |
-| Bank Operations | 8 | JWT* | Link, Sync, History, Unlink |
+| Bank Operations | 6 | JWT* | Link, Sync, History, Unlink, Webhook |
 
-*The bank callback endpoint is public (GoCardless redirects without JWT)
+*The Plaid Webhook endpoint (`/api/banks/webhook`) is public so Plaid can reach it.
 
-**Total: 23 API endpoints**
+**Total: 21 API endpoints**

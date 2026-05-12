@@ -1,7 +1,7 @@
 # Expense Tracking — Frontend Architecture
 
 > **Audience:** Developers working on the frontend
-> **Last Updated:** 2026-04-09
+> **Last Updated:** 2026-05-12
 > **Stack:** React 19 · Vite 7 · Ant Design 6 · Recharts 3 · Axios · React Router 7 · dayjs
 
 ---
@@ -54,7 +54,7 @@ frontend/
         ├── Dashboard.jsx          # Stats + pie chart + recent transactions
         ├── Transactions.jsx       # Filterable table + CRUD modal + CSV export
         ├── Categories.jsx         # Category table + add/edit modal
-        ├── BankAccounts.jsx       # Bank cards + link modal + sync + history + unlink
+        ├── BankAccounts.jsx       # Plaid Link widget + bank accounts list
         └── Profile.jsx           # Edit name + change password
 ```
 
@@ -118,10 +118,6 @@ Logout:
 
 JWT is stateless — the server doesn't track sessions. The browser must persist the token between page reloads. `sessionStorage` is cleared on tab close; `localStorage` persists until explicitly removed.
 
-### Why validate the token on mount?
-
-The token could have expired or been revoked. Calling `GET /user/profile` confirms it's still valid. If the backend returns 401, the frontend clears the token and redirects to login.
-
 ---
 
 ## API Client (axios.js)
@@ -155,19 +151,6 @@ api.interceptors.response.use(
 
 React Router's `navigate()` is a soft redirect — it only changes the URL. But Axios's 401 interceptor fires **after** a page has already loaded with bad data. A hard redirect ensures the browser fetches `/login` fresh, clearing any stale component state.
 
-### Why interceptors and not a wrapper function?
-
-Without interceptors, every API call would need to manually attach the token:
-```javascript
-// Without interceptor — repetitive, error-prone
-api.get('/transactions', {
-  headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-})
-
-// With interceptor — clean
-api.get('/transactions')
-```
-
 ---
 
 ## Protected Routes
@@ -181,8 +164,6 @@ const ProtectedRoute = ({ children }) => {
   return children;                                  // Authenticated
 };
 ```
-
-The loading state is critical: without it, the app would briefly flash the protected page before redirecting unauthenticated users, or show the login page to authenticated users during the token validation request.
 
 ---
 
@@ -202,20 +183,6 @@ All styling uses CSS custom properties — no CSS-in-JS, no Tailwind.
 }
 ```
 
-Ant Design's theme tokens override the library globally:
-```javascript
-<ConfigProvider theme={{ token: { colorPrimary: '#0D9F6E', borderRadius: 8 } }}>
-```
-
-### Currency Formatting
-
-```javascript
-const formatCurrency = (val) =>
-  new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' }).format(val || 0);
-```
-
-`Intl.NumberFormat` is built into every modern browser — no library import needed. `en-GB` ensures comma thousands separator and `£` symbol.
-
 ---
 
 ## Pages
@@ -225,8 +192,6 @@ const formatCurrency = (val) =>
 - **Pie chart**: Spending breakdown by category via `GET /transactions/category-summary`
 - **Recent transactions**: Last 5 via `GET /transactions?page=0&size=5`
 
-Fetching the pie chart from the dashboard endpoint rather than the 5 recent transactions ensures all transactions are represented, not just the most recent ones.
-
 ### Transactions (`/transactions`)
 - **Filter bar**: Category dropdown + DatePicker.RangePicker + Apply
 - **Table**: pagination (`current`, `pageSize`, `total`), sortable columns
@@ -235,10 +200,11 @@ Fetching the pie chart from the dashboard endpoint rather than the 5 recent tran
 - **Export**: `GET /transactions/export` with `responseType: 'blob'` → trigger download
 
 ### Bank Accounts (`/banks`)
-- Country selector → fetches institution list → user picks bank
-- After `POST /banks/link`, redirects browser to GoCardless
-- GoCardless redirects back to `/api/banks/callback` → frontend polls account status
-- Sync shows new transaction count from the response
+- **Plaid Integration:** Uses the official Plaid Link widget.
+- After calling `POST /banks/link`, backend provides a `link_token`.
+- Frontend initializes `window.Plaid.create({ token: linkToken })`.
+- On successful bank connection (`onSuccess`), frontend receives a `public_token` and sends it to `POST /api/banks/link/complete`.
+- The UI polls and displays account status. If the status is `ERROR` or `PENDING_EXPIRATION` (updated via backend webhooks), the UI will prompt the user to reconnect.
 
 ---
 
@@ -251,7 +217,7 @@ Fetching the pie chart from the dashboard endpoint rather than the 5 recent tran
 | `/` | Dashboard | Protected | GET /dashboard + GET /category-summary + GET /transactions |
 | `/transactions` | Transactions | Protected | Full CRUD + GET /categories + export |
 | `/categories` | Categories | Protected | GET /categories + CRUD |
-| `/banks` | BankAccounts | Protected | GET /banks + institutions + sync + history |
+| `/banks` | BankAccounts | Protected | GET /banks + sync + history |
 | `/profile` | Profile | Protected | GET /user/profile + PUT endpoints |
 
 ---

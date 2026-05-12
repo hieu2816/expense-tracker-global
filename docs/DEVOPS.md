@@ -1,7 +1,7 @@
 # Expense Tracking — DevOps Technical Reference
 
 > **Audience:** Developers, DevOps learners, technical leads
-> **Last Updated:** 2026-04-09
+> **Last Updated:** 2026-05-12
 > **Stack:** AWS EC2 · Ubuntu · Docker · Docker Compose · Nginx · Certbot · GitHub Actions · Git/JWT · PostgreSQL 16
 
 ---
@@ -153,22 +153,6 @@ The app runs as four containers managed by Docker Compose:
 - `nginx` — Multi-stage Node build + Nginx, serves React static files, proxies `/api` to backend
 - `certbot` — Standalone container for Let's Encrypt certificate management
 
-### Why This Works Well
-
-| Problem | Docker Solution |
-|---------|-----------------|
-| Manual service setup | Services defined in `docker-compose.yml` |
-| Port conflicts | Isolated container ports |
-| Dependency mismatch | Each service has its own image |
-| Hard to restart | One command restarts the stack |
-
-### Compose Responsibilities
-
-- create the internal network
-- provide service-name DNS between containers
-- persist database data with volumes
-- manage restart behavior
-
 ---
 
 ## Nginx & HTTPS
@@ -195,57 +179,20 @@ Certificate files are mounted into Nginx from the host:
 /etc/letsencrypt/live/spendwiser.me/privkey.pem
 ```
 
-### Why HTTPS Matters
-
-- encrypts login and transaction data
-- avoids browser security warnings
-- required for secure public deployment
-- improves trust for users
-
 ---
 
-## DNS & Domain Routing
+## Configuration Reference / Environment Variables
 
-### Domain Setup
-
-The domain `spendwiser.me` points to the EC2 public IP.
-
-Records used:
-
-| Record | Value | Purpose |
-|--------|-------|---------|
-| `A @` | EC2 public IP | Root domain |
-| `A www` | EC2 public IP | `www` alias |
-
-### Why DNS Was Required
-
-Let's Encrypt needs a real domain. Users also need a stable, memorable URL instead of a raw IP address.
-
----
-
-## Security Model
-
-### Network Exposure
-
-| Port | Exposure | Why |
-|------|----------|-----|
-| 22 | Restricted | SSH access for admin only |
-| 80 | Open | HTTP redirect and certificate checks |
-| 443 | Open | Public website traffic |
-| 8080 | Closed | Backend only via Nginx |
-| 5432 | Closed | Database only inside Docker network |
-
-### Security Layers
-
-1. AWS Security Groups block unwanted traffic
-2. Nginx is the only public entry point
-3. Backend and database are private
-4. SSH is limited to trusted IPs
-5. Certificates and secrets stay on the host
-
-### Why This Design
-
-The goal is to reduce attack surface while keeping deployment simple.
+| Variable | Required | Purpose |
+|----------|----------|---------|
+| `DB_URL` | Prod | PostgreSQL JDBC URL |
+| `DB_USERNAME` | Prod | Database user |
+| `DB_PASSWORD` | Prod | Database password |
+| `JWT_SECRET` | Prod | HS256 signing key |
+| `PLAID_CLIENT_ID` | Bank Features | Plaid API Client ID |
+| `PLAID_SECRET` | Bank Features | Plaid API Secret |
+| `PLAID_ENV` | Bank Features | Plaid environment (`sandbox`, `development`, `production`) |
+| `PLAID_WEBHOOK_URL`| Bank Features | Public URL for Plaid to send events (e.g., `https://spendwiser.me/api/banks/webhook`) |
 
 ---
 
@@ -265,16 +212,6 @@ flowchart LR
     D -->|No| I[Fail workflow]
 ```
 
-### GitHub Actions Workflow
-
-The workflow:
-
-- checks out the code
-- runs build/tests
-- connects to EC2 with SSH
-- updates the deployment
-- restarts the Docker Compose stack
-
 ### Secrets Used
 
 | Secret | Purpose |
@@ -284,33 +221,16 @@ The workflow:
 | `EC2_SSH_KEY` | Private SSH key for authentication |
 | `ENV_FILE` | Full `.env` file content — rewritten on every deploy |
 
-### Why CI/CD Helps
-
-- reduces manual deploy errors
-- gives repeatable deployments
-- makes release process faster
-- ensures code is tested before deployment
-
 ---
 
 ## Deployment Flow
-
-### Manual Flow
-
-1. Push code to GitHub
-2. GitHub Actions runs
-3. Tests pass
-4. SSH into EC2
-5. Pull new code
-6. Rebuild containers
-7. Restart stack
 
 ### What Happens on the Server
 
 ```bash
 git pull
 cat << 'ENVEOF' > .env
-${{ secrets.ENV_FILE }}   # written by pipeline — contains real DB/JWT/GoCardless credentials
+${{ secrets.ENV_FILE }}   # written by pipeline — contains real DB/JWT/Plaid credentials
 ENVEOF
 docker compose build
 docker compose up -d
@@ -318,37 +238,6 @@ docker image prune -f
 ```
 
 The `.env` is fully rewritten on every deploy — the server never holds persistent secrets.
-The pipeline assumes Docker is installed and the repository is cloned.
-
----
-
-## Operational Tasks
-
-### Common Commands
-
-```bash
-docker compose ps
-docker compose logs -f
-docker compose restart
-docker system prune -af
-free -h
-df -h
-sudo nginx -t
-sudo certbot renew --dry-run
-```
-
-### What Each One Does
-
-| Command | Purpose |
-|---------|---------|
-| `docker compose ps` | Check container status |
-| `docker compose logs -f` | Follow application logs |
-| `docker compose restart` | Restart services |
-| `docker system prune -af` | Clean unused Docker resources |
-| `free -h` | Check memory usage |
-| `df -h` | Check disk usage |
-| `nginx -t` | Validate Nginx config |
-| `certbot renew --dry-run` | Test certificate renewal |
 
 ---
 
@@ -372,34 +261,3 @@ sudo certbot renew --dry-run
 4. Check Security Groups
 5. Check DNS
 6. Check certificates
-
----
-
-## Current Limitations
-
-- single EC2 instance means one point of failure
-- manual host maintenance is still required
-- database is containerized instead of managed
-- deployment can briefly interrupt service
-- monitoring and alerting are minimal
-
----
-
-## Next Steps
-
-Recommended improvements:
-
-1. Add monitoring and alerting
-2. Add automated backups
-3. Move secrets to a managed service
-4. Introduce zero-downtime deployment strategy
-5. Build a staging environment
-6. Push images to a registry instead of building on server
-
----
-
-## Related
-
-- [Project Overview](./PROJECT_OVERVIEW.md)
-- [Backend Reference](./BACKEND.md)
-- [Frontend Architecture](./FRONTEND.md)
