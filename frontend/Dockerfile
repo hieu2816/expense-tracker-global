@@ -3,6 +3,8 @@ FROM node:22-alpine AS build
 WORKDIR /app
 # Copy package files first (for dependency caching)
 COPY package.json package-lock.json ./
+# Copy folder scripts/ for any build scripts
+COPY scripts/ ./scripts/
 # Install dependencies
 RUN npm ci
 # Copy source code
