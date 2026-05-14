@@ -4,7 +4,7 @@ A personal finance management REST API built with Spring Boot. Tracks income and
 
 ---
 
-## Documentation
+## Documentation 
 
 | Document | What It Covers |
 |----------|--------------|
