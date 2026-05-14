@@ -5,6 +5,7 @@ import { FolderOpen, Pencil, Trash2 } from 'lucide-react';
 import api from '../api/axios';
 
 const Categories = () => {
+    console.log("Downtime test");
     const [categories, setCategories] = useState([]);
     const [loading, setLoading] = useState(true);
     const [modalOpen, setModalOpen] = useState(false);
