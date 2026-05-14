@@ -5,7 +5,7 @@ set -e
 # 1. check_backend_health: Checks Java's "heartbeat" (port 8080).
 # If it crashes or loses DB connection -> Instantly sends the last 30 error log lines to Telegram.
 # 2. check_sync_health: Queries PostgreSQL directly.
-# Counts FAILED GoCardless transactions in the last 15 minutes -> Reports error codes to Telegram.
+# Counts FAILED Plaid transactions in the last 15 minutes -> Reports error codes to Telegram.
 # 3. check_ssl_expiry: Reads the HTTPS certificate.
 # Sends renewal reminders before the site is marked "Not Secure" (alerts at 30 days and 7 days prior).
 # 4. cleanup_disk: Auto-cleans garbage. Deletes old Docker images (>72 hours) and truncates
@@ -143,9 +143,9 @@ check_sync_health() {
 
     if (( failed_count > 0 )); then
         local recent_failures=$(docker compose exec -T -e PGPASSWORD="$DB_PASSWORD" database psql -U "$DB_USERNAME" -d "${POSTGRES_DB:-postgres}" -t -c \
-            "SELECT bank_config_id, error_message, synced_at FROM sync_logs WHERE status='FAILED' AND synced_at > NOW() - INTERVAL '15 minutes' ORDER BY synced_at DESC LIMIT 3;" 2>/dev/null | tr '\n' '|' || echo "query_failed")
+            "SELECT plaid_item_id, error_message, synced_at FROM sync_logs WHERE status='FAILED' AND synced_at > NOW() - INTERVAL '15 minutes' ORDER BY synced_at DESC LIMIT 3;" 2>/dev/null | tr '\n' '|' || echo "query_failed")
         log "WARNING: $failed_count failed syncs in last 15 minutes"
-        alert "WARNING" "$failed_count failed GoCardless syncs in last 15 min" "${recent_failures:0:1000}"
+        alert "WARNING" "$failed_count failed Plaid syncs in last 15 min" "${recent_failures:0:1000}"
     fi
 }
 

@@ -1,7 +1,7 @@
 # AGENTS.md - AI Coding Agent Guidelines
 
 ## Project Overview
-Expense Tracking Global — a personal finance REST API with JWT auth, Open Banking (GoCardless), and React SPA.
+Expense Tracking Global — a personal finance REST API with JWT auth, Open Banking (Plaid), and React SPA.
 
 **Tech Stack:** Java 21, Spring Boot 3.5.9, PostgreSQL 16, Maven, Flyway, Lombok, JWT · React 19, Vite 7, Ant Design 6
 
@@ -198,13 +198,13 @@ public ResponseEntity<Page<ResponseDTO>> getAll(
 ## Database Migrations
 - Location: `src/main/resources/db/migration/`
 - Naming: `V{version}__{description}.sql` (double underscore)
-- Current migrations: V1 (init), V2 (GoCardless), V3 (adjustments), V4 (link reference UUID), V5 (category unique constraint)
+- Current migrations: V1 (init), V2 (GoCardless), V3 (adjustments), V4 (link reference UUID), V5 (category unique constraint), V6 (Plaid), V7 (Plaid Naming)
 - Use snake_case for table/column names
 - JPA is `ddl-auto: validate` — Flyway owns the schema
 
 ## Security
 - JWT auth required for all endpoints except `/api/auth/**` and `/api/banks/callback`
-- GoCardless callback is public (bank redirects without JWT) — protected by UUID in `link_reference`
+- Plaid webhook callback is public — used for background transaction syncing.
 - Always verify resource ownership before update/delete operations
 - `@AuthenticationPrincipal` is the preferred way to get the current user
 
