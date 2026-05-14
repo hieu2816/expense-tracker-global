@@ -35,6 +35,7 @@ public class CategoryController {
     public ResponseEntity<CategoryDTO> createCategory(
             @AuthenticationPrincipal User user,
             @Valid @RequestBody CategoryRequest request) {
+        System.out.println("Test DevOps Baseline");
         log.info("Creating category '{}' for user {}", request.getName(), user.getEmail());
         CategoryDTO category = categoryService.createCategory(user, request);
         return ResponseEntity.ok(category);
