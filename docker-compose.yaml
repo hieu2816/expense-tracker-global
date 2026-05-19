@@ -34,6 +34,10 @@ services:
       PLAID_CLIENT_ID: ${PLAID_CLIENT_ID}
       PLAID_SECRET: ${PLAID_SECRET}
       PLAID_ENV: ${PLAID_ENV}
+      PLAID_WEBHOOK_URL: ${PLAID_WEBHOOK_URL}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY}
+      # Limited memory settings for Java to prevent OOM in constrained environments
+      JAVA_TOOL_OPTIONS: "-Xms256m -Xmx450m -XX:+UseContainerSupport -XX:MaxRAMPercentage=50.0 -XX:+ExitOnOutOfMemoryError"
     depends_on:
       database:
         condition: service_healthy
@@ -44,6 +48,7 @@ services:
       timeout: 10s
       retries: 3
       start_period: 90s
+
 
   # --- Nginx (Frontend + Reverse Proxy) ---
   nginx:

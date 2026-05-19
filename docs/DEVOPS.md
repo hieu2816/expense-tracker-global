@@ -66,7 +66,7 @@ flowchart TB
 |---------|------|---------|-------|
 | Nginx | Reverse proxy, static hosting, HTTPS termination | Yes | Public entry point |
 | Spring Boot | API backend | No | Internal only |
-| PostgreSQL | Database | No | Internal only, persisted via volume |
+| PostgreSQL | Database | Exposed on host port 5433, blocked from Internet by SG | Internal only, persisted via volume |
 | Certbot | SSL manager | No | Invoked by startup scripts/cron |
 | GitHub Actions| CI/CD automation | N/A | Triggers on push to `main` |
 
@@ -164,7 +164,7 @@ It:
 - listens on ports 80 and 443
 - redirects HTTP to HTTPS
 - serves the React build output
-- proxies `/api/*` to the backend container
+- proxies `/api/*` and `/actuator/*` to the backend container
 - applies security headers
 
 ### HTTPS Setup
@@ -195,11 +195,18 @@ SSL expiration is tracked continuously by `monitor.sh` (see Monitoring below).
 | Variable | Required | Purpose |
 |----------|----------|---------|
 | `DB_URL` | Prod | PostgreSQL JDBC URL |
-| `DB_USERNAME` | Prod | Database user |
-| `DB_PASSWORD` | Prod | Database password |
+| `POSTGRES_DB` | Prod | Name of the database to create |
+| `POSTGRES_USER` | Prod | Root user for the database |
+| `POSTGRES_PASSWORD` | Prod | Password for the root DB user |
+| `DB_USERNAME` | Prod | Database user for Spring Boot |
+| `DB_PASSWORD` | Prod | Database password for Spring Boot |
 | `JWT_SECRET` | Prod | HS256 signing key |
+| `ENCRYPTION_KEY` | Prod | Key used for encrypting sensitive data |
+| `ALLOWED_ORIGINS`| Prod | Comma-separated list of allowed CORS origins |
+| `SPRING_PROFILES_ACTIVE`| Prod | Active Spring profile (e.g. `prod`) |
 | `TLS_DOMAIN` | Prod | Primary domain (e.g., `spendwiser.me`) |
 | `LETSENCRYPT_EMAIL`| Prod | Contact email for SSL generation |
+| `CERTBOT_STAGING`| Opt | Set to `true` to use Let's Encrypt staging API (avoid rate limits) |
 | `TELEGRAM_BOT_TOKEN`| Prod | Telegram bot token for alerting |
 | `TELEGRAM_CHAT_ID` | Prod | Telegram chat ID for alerting |
 | `PLAID_CLIENT_ID` | Bank | Plaid API Client ID |

@@ -141,7 +141,9 @@ jobs:
             done
 
             # Install / update monitoring cron jobs
-            chmod +x script/install-cron.sh
+            chmod +x script/*.sh
+            sed -i 's/\r$//' script/monitor.sh
+            sed -i 's/\r$//' etc/monitor-cron
             sudo ./script/install-cron.sh
 
             # Run smoke tests — fail deploy if any check fails

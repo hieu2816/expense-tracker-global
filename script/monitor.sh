@@ -87,7 +87,7 @@ check_disk() {
 # --- Container health ---
 check_containers() {
     local failed=($(docker compose ps --format json 2>/dev/null | \
-        jq -r 'select(.Service!="certbot" and .State!="Up") | .Service' 2>/dev/null || true))
+        jq -r '.[] | select(.Service!="certbot" and .State!="running") | .Service' 2>/dev/null || true))
 
     if [[ ${#failed[@]} -gt 0 ]]; then
         log "ERROR: Containers not running: ${failed[*]}"
@@ -120,6 +120,12 @@ check_backend_health() {
         local last_logs=$(docker compose logs backend --tail=30 2>&1 | tr '\n' '|')
         log "ERROR: Backend health check failed: $health_response"
         alert "CRITICAL" "Backend is DOWN and unreachable at http://localhost:8080/actuator/health" "${last_logs:0:1500}"
+
+        if check_restart_loop; then
+          log "Attempting to restart backend due to failed health check..."
+          docker compose restart backend
+          record_restart
+        fi
         return 1
     }
 
