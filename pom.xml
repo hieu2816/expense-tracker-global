@@ -160,7 +160,18 @@
 			<plugin>
 				<groupId>org.jacoco</groupId>
 				<artifactId>jacoco-maven-plugin</artifactId>
-				<version>0.8.12</version> <executions>
+				<version>0.8.12</version>
+				<configuration>
+					<excludes>
+						<exclude>com/example/expense_tracking/entity/**</exclude>
+						<exclude>com/example/expense_tracking/dto/**</exclude>
+						<exclude>com/example/expense_tracking/config/**</exclude>
+						<exclude>com/example/expense_tracking/exception/**</exclude>
+						<exclude>com/example/expense_tracking/utils/**</exclude>
+						<exclude>com/example/expense_tracking/ExpenseTrackingGlobalApplication.class</exclude>
+					</excludes>
+				</configuration>
+				<executions>
 				<execution>
 					<id>prepare-agent</id>
 					<goals>

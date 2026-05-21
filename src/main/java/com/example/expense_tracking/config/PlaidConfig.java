@@ -3,6 +3,7 @@ package com.example.expense_tracking.config;
 import com.plaid.client.ApiClient;
 import com.plaid.client.request.PlaidApi;
 import lombok.Data;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -11,6 +12,7 @@ import java.util.HashMap;
 
 @Configuration
 @Data
+@Slf4j
 public class PlaidConfig {
     @Value("${plaid.client-id}")
     private String clientId;
@@ -26,7 +28,7 @@ public class PlaidConfig {
 
     @Bean
     public PlaidApi plaidClient() {
-        System.out.println("PLAID CONFIG: clientId=" + clientId + ", secret=" + secret + ", env=" + environment + ", webhookUrl=" + webhookUrl);
+        log.info("PLAID CONFIG initializing: clientId={}, env={}, webhookUrl={}", clientId, environment, webhookUrl);
         HashMap<String, String> apiKeys = new HashMap<>();
         apiKeys.put("clientId", clientId);
         apiKeys.put("secret", secret);
