@@ -32,7 +32,6 @@ public class BankController {
     private final BankLinkingService bankLinkingService;
     private final WebhookService webhookService;
     private final ObjectMapper objectMapper;
-    private final PlaidItemRepository PlaidItemRepository;
 
     // Start the Plaid Link flow.
     @PostMapping("/link")
