@@ -1,0 +1,21 @@
+global:
+  scrape_interval: 30s # Collect data every 30 seconds
+  evaluation_interval: 30s
+# Sent data collected to Grafana Cloud
+remote_write:
+  - url: ${GRAFANA_PROM_URL}
+    basic_auth:
+      username: ${GRAFANA_PROM_USER}
+      password: ${GRAFANA_PROM_PASS}
+# List of targets to scrape metrics from
+scrape_configs:
+  - job_name: 'spring-boot'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['backend:8080']
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets: ['node-exporter:9100']
+  - job_name: 'cadvisor'
+    static_configs:
+      - targets: ['cadvisor:8080']

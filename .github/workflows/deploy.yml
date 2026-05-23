@@ -150,13 +150,11 @@ jobs:
             ENVEOF
 
             # Write Telegram config for monitor scripts
-            cat << 'TELEGRAMEOF' >> .env
-            TELEGRAM_BOT_TOKEN=${{ secrets.TELEGRAM_BOT_TOKEN }}
-            TELEGRAM_CHAT_ID=${{ secrets.TELEGRAM_CHAT_ID }}
+            cat << 'IMAGEOF' >> .env
             # Inject Link Image from GHCR
             BACKEND_IMAGE=ghcr.io/${{ env.REPO_LOWER }}/backend:${{ github.sha }}
             FRONTEND_IMAGE=ghcr.io/${{ env.REPO_LOWER }}/frontend:${{ github.sha }}
-            TELEGRAMEOF
+            IMAGEOF
 
             # Login GHCR in EC2 and Pull Images 
             echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin

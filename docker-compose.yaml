@@ -77,7 +77,63 @@ services:
     volumes:
       - certbot-etc:/etc/letsencrypt # writes certs here
       - certbot-www:/var/www/certbot # writes challenge files here
+
+  # --- Prometheus (Monitoring) ---
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: expense-prometheus
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - expense_prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.retention.time=7d' # Keep data local 7 days for lightweight monitoring
+      # IMPORTANT: Allowed read ${VARIABLE} from config file to inject GHCR credentials for scraping private metrics endpoints
+      - '--enable-feature=envvar-expansion'
+    restart: unless-stopped
+    depends_on:
+      - backend
+    # Limit Ram usage to protect EC2
+    deploy:
+      resources:
+        limits:
+          memory: 150m
+
+    # --- Node Exporter: Monitoring CPU, RAM, Hard Drive ---
+  node-exporter:
+    image: prom/node-exporter:latest
+    container_name: expense-node-exporter
+    pid: host
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - '--path.rootfs=/rootfs'
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 30m
+
+  # --- cAdvisor: Monitoring each container ---
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:latest
+    container_name: expense-cadvisor
+    privileged: true
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 80m
+
 volumes:
   expense_data-global:
   certbot-etc:
   certbot-www:
+  expense_prometheus_data:
