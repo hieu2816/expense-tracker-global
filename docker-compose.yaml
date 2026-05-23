@@ -80,7 +80,7 @@ services:
 
   # --- Prometheus (Monitoring) ---
   prometheus:
-    image: prom/prometheus:latest
+    image: prom/prometheus:v3.11.3
     container_name: expense-prometheus
     environment:
       GRAFANA_PROM_URL: ${GRAFANA_PROM_URL}
