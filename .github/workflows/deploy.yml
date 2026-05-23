@@ -149,6 +149,13 @@ jobs:
             ${{ secrets.ENV_FILE }}
             ENVEOF
 
+            # Write Grafana variables for Prometheus remote_write
+            cat << 'GRAFANAEOF' >> .env
+            GRAFANA_PROM_URL=${{ secrets.GRAFANA_PROM_URL }}
+            GRAFANA_PROM_USER=${{ secrets.GRAFANA_PROM_USER }}
+            GRAFANA_PROM_PASS=${{ secrets.GRAFANA_PROM_PASS }}
+            GRAFANAEOF
+
             # Write Telegram config for monitor scripts
             cat << 'IMAGEOF' >> .env
             # Inject Link Image from GHCR
