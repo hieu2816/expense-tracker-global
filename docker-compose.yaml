@@ -92,8 +92,6 @@ services:
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--storage.tsdb.retention.time=7d' # Keep data local 7 days for lightweight monitoring
-      # IMPORTANT: Allowed read ${VARIABLE} from config file to inject GHCR credentials for scraping private metrics endpoints
-      - '--enable-feature=envvar-expansion'
     restart: unless-stopped
     depends_on:
       - backend
