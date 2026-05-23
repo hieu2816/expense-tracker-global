@@ -82,6 +82,10 @@ services:
   prometheus:
     image: prom/prometheus:latest
     container_name: expense-prometheus
+    environment:
+      GRAFANA_PROM_URL: ${GRAFANA_PROM_URL}
+      GRAFANA_PROM_USER: ${GRAFANA_PROM_USER}
+      GRAFANA_PROM_PASS: ${GRAFANA_PROM_PASS}
     volumes:
       - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - expense_prometheus_data:/prometheus
