@@ -3,10 +3,10 @@ global:
   evaluation_interval: 30s
 # Sent data collected to Grafana Cloud
 remote_write:
-  - url: ${{GRAFANA_PROM_URL}}
+  - url: ${GRAFANA_PROM_URL}
     basic_auth:
-      username: ${{GRAFANA_PROM_USER}}
-      password: ${{GRAFANA_PROM_PASS}}
+      username: ${GRAFANA_PROM_USER}
+      password: ${GRAFANA_PROM_PASS}
 # List of targets to scrape metrics from
 scrape_configs:
   - job_name: 'spring-boot'
