@@ -15,12 +15,12 @@ flowchart TB
     Internet -->|HTTP/80| SG
     
     subgraph "AWS EC2 (Ubuntu)"
-        SG --> Nginx[Nginx Container (Port 80/443)]
+        SG --> Nginx[Nginx Container Port 80/443]
         
         subgraph "Docker Bridge Network"
             Nginx -->|/api/*| Backend[Spring Boot Container:8080]
-            Nginx -->|/| Frontend[React Static Files (trong Nginx)]
-            Backend -->|TCP/5432| DB[(PostgreSQL Container:5432)]
+            Nginx -->|/| Frontend[React Static Files trong Nginx]
+            Backend -->|TCP/5432| DB[PostgreSQL Container:5432]
         end
     end
 ```

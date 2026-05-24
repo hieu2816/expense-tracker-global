@@ -176,6 +176,8 @@ jobs:
 
             # Start all services
             docker compose up -d
+            # Recreate Prometheus so the rendered /tmp/prometheus.yml uses the latest template and secrets
+            docker compose up -d --no-deps --force-recreate prometheus
 
             # Wait for containers to be healthy before smoke tests
             # docker inspect gives us State.Status + Health without jq parsing issues
