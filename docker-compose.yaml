@@ -87,15 +87,21 @@ services:
       GRAFANA_PROM_USER: ${GRAFANA_PROM_USER}
       GRAFANA_PROM_PASS: ${GRAFANA_PROM_PASS}
     volumes:
-      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml.template:ro
+      - ./monitoring/prometheus-entrypoint.sh:/etc/prometheus/prometheus-entrypoint.sh:ro
       - expense_prometheus_data:/prometheus
+    entrypoint: ["/bin/sh", "/etc/prometheus/prometheus-entrypoint.sh"]
     command:
-      - '--config.file=/etc/prometheus/prometheus.yml'
       - '--storage.tsdb.retention.time=7d' # Keep data local 7 days for lightweight monitoring
-      - '--enable-feature=envvar-expansion' # Allow env vars in config for Grafana Cloud credentials
     restart: unless-stopped
     depends_on:
       - backend
+    healthcheck:
+      test: [ "CMD-SHELL", "wget --spider -q http://127.0.0.1:9090/-/healthy || exit 1" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
     # Limit Ram usage to protect EC2
     deploy:
       resources:
