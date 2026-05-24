@@ -141,6 +141,21 @@ services:
         limits:
           memory: 80m
 
+  # --- PostgreSQL Exporter: Monitoring database health and usage ---
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter:v0.17.1
+    container_name: expense-postgres-exporter
+    environment:
+      DATA_SOURCE_NAME: "postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@database:5432/${POSTGRES_DB}?sslmode=disable"
+    depends_on:
+      database:
+        condition: service_healthy
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 40m
+
 volumes:
   expense_data-global:
   certbot-etc:

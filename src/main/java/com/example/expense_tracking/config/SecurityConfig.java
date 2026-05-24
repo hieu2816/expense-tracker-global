@@ -43,6 +43,7 @@ public class SecurityConfig {
                         // Permit actuator endpoints for health checks and monitoring
                         .requestMatchers("/actuator/health/**").permitAll()
                         .requestMatchers("/actuator/info").permitAll()
+                        .requestMatchers("/actuator/prometheus").permitAll()
 
                         .anyRequest().authenticated())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
