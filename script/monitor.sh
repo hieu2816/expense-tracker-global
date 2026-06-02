@@ -14,6 +14,8 @@ set -e
 # whether to run the 5-minute monitor, the daily SSL check, or the weekly disk cleanup.
 
 # --- Config ---
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 LOG_FILE="/var/log/monitor.log"
 RESTART_LOCK_FILE="/tmp/backend_restart.lock"
 MAX_RESTARTS=3
@@ -30,6 +32,11 @@ alert() {
     local severity="$1"
     local message="$2"
     local logs="${3:-}"   # optional log tail to include
+
+    if [[ -z "$TELEGRAM_BOT_TOKEN" || -z "$TELEGRAM_CHAT_ID" ]]; then
+        log "WARNING: Telegram alert skipped because TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID is missing"
+        return 0
+    fi
 
     local full_message="<b>[$severity]</b> $message"
     [[ -n "$logs" ]] && full_message="$full_message"$'\n'"<code>$logs</code>"
@@ -100,10 +107,12 @@ check_containers() {
                 record_restart
                 sleep 15
                 # Verify it stayed up
-                if curl -sf http://localhost:8080/actuator/health > /dev/null; then
+                local backend_health
+                backend_health=$(docker inspect --format='{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' expense-backend 2>/dev/null || echo "unknown")
+                if [[ "$backend_health" == "healthy" || "$backend_health" == "running" ]]; then
                     alert "WARNING" "Backend restarted successfully" "${last_logs:0:1000}"
                 else
-                    alert "CRITICAL" "Backend restarted but still unhealthy" "${last_logs:0:1000}"
+                    alert "CRITICAL" "Backend restarted but still unhealthy. Current health: $backend_health" "${last_logs:0:1000}"
                 fi
             fi
         else
@@ -115,11 +124,15 @@ check_containers() {
 
 # --- Backend health endpoint ---
 check_backend_health() {
-    local health_response
-    health_response=$(curl -sf --max-time 10 http://localhost:8080/actuator/health 2>&1) || {
+    local backend_state
+    local backend_health
+    backend_state=$(docker inspect --format='{{.State.Status}}' expense-backend 2>/dev/null || echo "missing")
+    backend_health=$(docker inspect --format='{{if .State.Health}}{{.State.Health.Status}}{{else}}no-healthcheck{{end}}' expense-backend 2>/dev/null || echo "missing")
+
+    if [[ "$backend_state" != "running" || "$backend_health" != "healthy" ]]; then
         local last_logs=$(docker compose logs backend --tail=30 2>&1 | tr '\n' '|')
-        log "ERROR: Backend health check failed: $health_response"
-        alert "CRITICAL" "Backend is DOWN and unreachable at http://localhost:8080/actuator/health" "${last_logs:0:1500}"
+        log "ERROR: Backend health check failed: state=$backend_state health=$backend_health"
+        alert "CRITICAL" "Backend is unhealthy. State: $backend_state | Health: $backend_health" "${last_logs:0:1500}"
 
         if check_restart_loop; then
           log "Attempting to restart backend due to failed health check..."
@@ -127,18 +140,9 @@ check_backend_health() {
           record_restart
         fi
         return 1
-    }
-
-    local status=$(echo "$health_response" | jq -r .status 2>/dev/null)
-    if [[ "$status" != "UP" ]]; then
-        local db_status=$(echo "$health_response" | jq -r '.components.db.status' 2>/dev/null)
-        local disk_status=$(echo "$health_response" | jq -r '.components.diskSpace.status' 2>/dev/null)
-        local last_logs=$(docker compose logs backend --tail=20 2>&1 | tr '\n' '|')
-        log "WARNING: Backend status=$status, db=$db_status, disk=$disk_status"
-        alert "WARNING" "Backend health: $status | DB: $db_status | Disk: $disk_status" "${last_logs:0:1000}"
-    else
-        log "Backend health: UP ✅"
     fi
+
+    log "Backend health: state=$backend_state health=$backend_health"
 }
 
 # --- SyncLog business logic check ---
@@ -189,6 +193,7 @@ cleanup_disk() {
 
 # --- Entry point ---
 main() {
+    cd "$PROJECT_DIR"
     log "=== Monitor run started ==="
     check_disk
     check_containers

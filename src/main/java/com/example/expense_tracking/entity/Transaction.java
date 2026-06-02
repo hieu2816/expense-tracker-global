@@ -8,6 +8,7 @@ import lombok.NoArgsConstructor;
 import org.hibernate.annotations.CreationTimestamp;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 @Entity
 @Table(name = "transactions", uniqueConstraints = {
@@ -37,6 +38,7 @@ public class Transaction {
     @Column(nullable = false)
     private BigDecimal amount;
 
+    @Builder.Default
     @Column(name = "currency")
     private String currency = "GBP";
 
@@ -53,6 +55,24 @@ public class Transaction {
     @Column(name = "plaid_transaction_id")
     private String plaidTransactionId;
 
+    @Builder.Default
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private TransactionSource source = TransactionSource.MANUAL_FORM;
+
+    @Column(name = "source_reference")
+    private String sourceReference;
+
+    @Column(name = "import_batch_id")
+    private UUID importBatchId;
+
+    @Column(name = "original_input")
+    private String originalInput;
+
+    @Column(name = "parse_confidence")
+    private BigDecimal parseConfidence;
+
+    @Builder.Default
     @Column(name = "is_deleted")
     private Boolean isDeleted = false;
 

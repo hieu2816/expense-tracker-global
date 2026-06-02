@@ -3,6 +3,7 @@ package com.example.expense_tracking.service;
 import com.example.expense_tracking.entity.BankAccount;
 import com.example.expense_tracking.entity.PlaidItem;
 import com.example.expense_tracking.entity.Transaction;
+import com.example.expense_tracking.entity.TransactionSource;
 import com.example.expense_tracking.entity.TransactionType;
 import com.example.expense_tracking.repository.BankAccountRepository;
 import com.example.expense_tracking.repository.PlaidItemRepository;
@@ -142,6 +143,8 @@ public class TransactionSyncService {
                             .user(item.getUser())
                             .bankAccount(account)
                             .plaidTransactionId(added.getTransactionId())
+                            .source(TransactionSource.PLAID)
+                            .sourceReference("PLAID_" + added.getTransactionId())
                             .amount(BigDecimal.valueOf(Math.abs(added.getAmount())))
                             .type(added.getAmount() < 0 ? TransactionType.OUT : TransactionType.IN)
                             .currency(added.getIsoCurrencyCode())

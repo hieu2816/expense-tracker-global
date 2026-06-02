@@ -23,6 +23,8 @@ import java.util.List;
 public interface TransactionRepository extends JpaRepository<Transaction,Long> {
     Page<Transaction> findAllByUser(User user, Pageable pageable);
 
+    java.util.Optional<Transaction> findByIdAndUser(Long id, User user);
+
     @Query(value = "SELECT t FROM Transaction t LEFT JOIN FETCH t.category WHERE t.user = :user " +
             "AND (:category IS NULL OR t.category.name = :category) " +
             "AND (CAST(:startDate AS timestamp) IS NULL OR t.transactionDate >= :startDate) " +
@@ -49,6 +51,8 @@ boolean existsByPlaidTransactionIdAndBankAccount(String plaidTransactionId, Bank
 
     // Find transaction by Plaid transaction ID and bank account - used for efficient lookups
     Transaction findByPlaidTransactionIdAndBankAccount(String plaidTransactionId, BankAccount bankAccount);
+
+    boolean existsByUserAndSourceReference(User user, String sourceReference);
 
     // Unlink all transactions from a bank account (set bankAccount to null)
     // Used when user unlinks a bank account but wants to keep transaction history

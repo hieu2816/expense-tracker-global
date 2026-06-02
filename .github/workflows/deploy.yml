@@ -157,6 +157,12 @@ jobs:
             GRAFANAEOF
 
             # Write Telegram config for monitor scripts
+            cat << 'TELEGRAMEOF' >> .env
+            TELEGRAM_BOT_TOKEN=${{ secrets.TELEGRAM_BOT_TOKEN }}
+            TELEGRAM_CHAT_ID=${{ secrets.TELEGRAM_CHAT_ID }}
+            TELEGRAMEOF
+
+            # Write image tags for Docker Compose
             cat << 'IMAGEOF' >> .env
             # Inject Link Image from GHCR
             BACKEND_IMAGE=ghcr.io/${{ env.REPO_LOWER }}/backend:${{ github.sha }}

@@ -1,286 +1,342 @@
-# Expense Tracking — DevOps Technical Reference
+# Expense Tracking - DevOps Technical Reference
 
-> **Audience:** Developers, DevOps learners, technical leads
-> **Last Updated:** 2026-05-13
-> **Stack:** AWS EC2 · Ubuntu · Docker · Docker Compose · Nginx · Certbot · GitHub Actions · Git/JWT · PostgreSQL 16
-
----
-
-## Table of Contents
-
-1. [Scope](#scope)
-2. [[#Current DevOps Architecture]]
-3. [[#Infrastructure Decisions]]
-4. [[#Server Setup]]
-5. [[#Containerization]]
-6. [[#Nginx and HTTPS]]
-7. [[#Automated TLS and SSL Management]]
-8. [[#Configuration and Environment Variables]]
-9. [[#CI/CD Pipeline and Deployment]]
-10. [[#Monitoring and Self-Healing]]
-11. [[#Automated Maintenance]]
-12. [Troubleshooting](#troubleshooting)
+> **Audience:** developers, DevOps learners, operators  
+> **Last Updated:** 2026-05-29  
+> **Stack:** AWS EC2, Ubuntu, Docker Compose, Nginx, Certbot, GitHub Actions, GHCR, SonarCloud, Trivy, Prometheus, Grafana Cloud
 
 ---
 
 ## Scope
 
-This document covers the DevOps work completed for the Expense Tracker project:
+This document covers the production and operations setup:
 
-- AWS EC2 server provisioning
-- Ubuntu server setup
-- Docker and Docker Compose deployment
-- Nginx reverse proxy setup
-- HTTPS certificates with Certbot / Let's Encrypt
-- DNS routing for `spendwiser.me`
-- Security Groups and network exposure
-- GitHub Actions CI/CD deployment
-- Automated monitoring, alerting (Telegram), and self-healing (cron + Bash)
-- Swap configuration for low-memory instances
-- Plaid Open Banking integration configuration
-- Operational commands and troubleshooting
+- AWS EC2 single-instance deployment.
+- Docker Compose runtime.
+- Nginx HTTPS reverse proxy.
+- Certbot/Let's Encrypt TLS automation.
+- GitHub Actions CI/CD.
+- GHCR image publishing and EC2 image pulling.
+- Telegram deploy and monitoring alerts.
+- Prometheus metrics collection.
+- Grafana Cloud remote write, dashboards, and alert-ready metrics.
 
 ---
 
-## Current DevOps Architecture
+## Current Production Architecture
 
-```mermaid
-flowchart TB
-    User[Browser] -->|HTTPS 443| DNS[DNS: spendwiser.me]
-    DNS --> SG{AWS Security Group}
-    SG --> Nginx[Nginx on EC2]
-    Nginx -->|/| Frontend[React static files]
-    Nginx -->|/api/*| Backend[Spring Boot container]
-    Backend --> DB[(PostgreSQL container)]
-    GitHub[GitHub Actions] -->|SSH deploy| EC2[Ubuntu EC2 instance]
-    EC2 --> Docker[Docker Compose]
-    Docker --> Nginx
-    Docker --> Backend
-    Docker --> DB
-    Certbot[Certbot/Let's Encrypt] --> Nginx
+```text
+Internet
+  -> AWS Security Group
+  -> EC2 Ubuntu
+  -> Nginx container
+      |-- serves React static files
+      |-- proxies /api/* to backend:8080
+      |-- proxies /actuator/* to backend:8080
+  -> Spring Boot backend
+  -> PostgreSQL
 ```
 
-### Service Layout
+Monitoring side path:
 
-| Service | Role | Exposed | Notes |
-|---------|------|---------|-------|
-| Nginx | Reverse proxy, static hosting, HTTPS termination | Yes | Public entry point |
-| Spring Boot | API backend | No | Internal only |
-| PostgreSQL | Database | Exposed on host port 5433, blocked from Internet by SG | Internal only, persisted via volume |
-| Certbot | SSL manager | No | Invoked by startup scripts/cron |
-| GitHub Actions| CI/CD automation | N/A | Triggers on push to `main` |
-
----
-
-## Infrastructure Decisions
-
-### Why AWS EC2?
-
-| Choice | Why |
-|--------|-----|
-| **EC2** | Full control over the server, low cost, good learning value |
-| **Ubuntu** | Familiar Linux distribution, strong package support |
-| **t2.micro** | Cheap, enough for a small personal project, free-tier friendly |
-| **Single instance** | Simpler than multi-node orchestration for current scale |
-
-### Why Docker?
-
-Docker solves the classic deployment problem:
-
-- same app, different machine
-- dependency drift
-- manual setup on every server
-- unclear runtime environment
-
-Containers make the backend and database reproducible.
-
-### Why Nginx?
-
-Nginx handles the public edge:
-
-- serves the frontend
-- proxies API requests
-- terminates HTTPS
-- keeps backend private
-
-### Why GitHub Actions?
-
-GitHub Actions gives you automated deployment without needing a separate CI server.
-
----
-
-## Server Setup
-
-### Base Setup Steps
-
-1. Launch EC2 instance
-2. Select Ubuntu
-3. Add Security Group rules (Port 80, 443, 22)
-4. SSH into the instance
-5. Update packages
-6. Install Docker
-7. Add the user to the docker group
-8. Add swap for memory pressure
-
-### Commands Used
-
-```bash
-sudo apt update && sudo apt upgrade -y
-curl -fsSL https://get.docker.com | sudo sh
-sudo usermod -aG docker $USER
-sudo fallocate -l 2G /swapfile
-sudo chmod 600 /swapfile
-sudo mkswap /swapfile
-sudo swapon /swapfile
-echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
-```
-
-### Why Swap Was Needed
-
-The instance is small, so Docker builds and Java processes can exceed available RAM. Swap prevents the system from killing processes during build or startup.
-
----
-
-## Containerization
-
-### Runtime Model
-
-The app runs as four containers managed by Docker Compose:
-
-- `database` — PostgreSQL 16, persisted via Docker volume
-- `backend` — Spring Boot JAR, built from multi-stage Maven Dockerfile
-- `nginx` — Multi-stage Node build + Nginx, serves React static files, proxies `/api` to backend, uses `envsubst` for dynamic TLS domains.
-- `certbot` — Standalone container for Let's Encrypt certificate management
-
----
-
-## Nginx and HTTPS
-
-### Nginx Role
-
-Nginx is the public-facing web server.
-
-It:
-- listens on ports 80 and 443
-- redirects HTTP to HTTPS
-- serves the React build output
-- proxies `/api/*` and `/actuator/*` to the backend container
-- applies security headers
-
-### HTTPS Setup
-
-Certificate files are mounted into Nginx from the host:
-
-```bash
-/etc/letsencrypt/live/spendwiser.me/fullchain.pem
-/etc/letsencrypt/live/spendwiser.me/privkey.pem
+```text
+backend /actuator/prometheus
+node-exporter
+cadvisor
+postgres-exporter
+prometheus self metrics
+        |
+        | Prometheus scrape every 30s
+        v
+Prometheus on EC2
+        |
+        | remote_write HTTPS
+        v
+Grafana Cloud Metrics
 ```
 
 ---
 
-## Automated TLS and SSL Management
+## Docker Compose Services
 
-TLS certificates are bootstrapped automatically via `script/bootstrap-tls.sh` which is called during deployment.
+| Service | Image | Role | Public? |
+|---|---|---|---|
+| `nginx` | `FRONTEND_IMAGE` from GHCR | Serves React app, TLS, reverse proxy | Yes, `80/443` |
+| `backend` | `BACKEND_IMAGE` from GHCR | Spring Boot API | No |
+| `database` | `postgres:16-alpine` | PostgreSQL storage | Host mapped `5433`, protect with SG |
+| `certbot` | `certbot/certbot` | TLS certificate issue/renew | No |
+| `prometheus` | `prom/prometheus:v2.55.1` | Scrapes metrics, remote writes to Grafana | No |
+| `node-exporter` | `prom/node-exporter` | EC2 host metrics | No |
+| `cadvisor` | `gcr.io/cadvisor/cadvisor` | Docker container metrics | No |
+| `postgres-exporter` | `prometheuscommunity/postgres-exporter:v0.17.1` | PostgreSQL metrics | No |
 
-**Features of the Bootstrap Script:**
-- **Idempotency:** It skips generation if a valid cert (>30 days remaining) exists.
-- **Nginx Survival:** It first generates a dummy self-signed cert so Nginx can start up without crashing. Once Nginx is ready, it issues the real Let's Encrypt cert and gracefully reloads Nginx.
+Memory limits are used for monitoring services to protect the small EC2 instance:
 
-SSL expiration is tracked continuously by `monitor.sh` (see Monitoring below).
-
----
-
-## Configuration and Environment Variables
-
-| Variable | Required | Purpose |
-|----------|----------|---------|
-| `DB_URL` | Prod | PostgreSQL JDBC URL |
-| `POSTGRES_DB` | Prod | Name of the database to create |
-| `POSTGRES_USER` | Prod | Root user for the database |
-| `POSTGRES_PASSWORD` | Prod | Password for the root DB user |
-| `DB_USERNAME` | Prod | Database user for Spring Boot |
-| `DB_PASSWORD` | Prod | Database password for Spring Boot |
-| `JWT_SECRET` | Prod | HS256 signing key |
-| `ENCRYPTION_KEY` | Prod | Key used for encrypting sensitive data |
-| `ALLOWED_ORIGINS`| Prod | Comma-separated list of allowed CORS origins |
-| `SPRING_PROFILES_ACTIVE`| Prod | Active Spring profile (e.g. `prod`) |
-| `TLS_DOMAIN` | Prod | Primary domain (e.g., `spendwiser.me`) |
-| `LETSENCRYPT_EMAIL`| Prod | Contact email for SSL generation |
-| `CERTBOT_STAGING`| Opt | Set to `true` to use Let's Encrypt staging API (avoid rate limits) |
-| `TELEGRAM_BOT_TOKEN`| Prod | Telegram bot token for alerting |
-| `TELEGRAM_CHAT_ID` | Prod | Telegram chat ID for alerting |
-| `PLAID_CLIENT_ID` | Bank | Plaid API Client ID |
-| `PLAID_SECRET` | Bank | Plaid API Secret |
-| `PLAID_ENV` | Bank | Plaid environment (`sandbox`, `development`, `production`) |
-| `PLAID_WEBHOOK_URL`| Bank | Public URL for Plaid to send events (e.g., `https://spendwiser.me/api/banks/webhook`) |
-
-*(Note: Plaid has fully replaced the legacy GoCardless integration as of db migrations V6/V7).*
+| Service | Limit |
+|---|---:|
+| Prometheus | 150MB |
+| Node Exporter | 30MB |
+| cAdvisor | 80MB |
+| PostgreSQL Exporter | 40MB |
 
 ---
 
-## CI/CD Pipeline and Deployment
+## Public and Private Network Boundaries
 
-The deployment pipeline is fully automated via `.github/workflows/deploy.yml` triggered on push to `main`.
+Public inbound traffic should be limited to:
 
-### The Flow:
+```text
+22/tcp  SSH, restricted to trusted IPs
+80/tcp  HTTP, redirects to HTTPS and Let's Encrypt challenge
+443/tcp HTTPS application traffic
+```
 
-1. **Build & Test:** A temporary PostgreSQL service is spun up. Maven builds and tests the Java backend. NPM builds the Vite React frontend.
-2. **Deploy via SSH:** If tests pass, the action SSHes into EC2.
-3. **Environment Injection:** Variables and secrets are securely injected into `.env`.
-4. **Image Rebuild & TLS Bootstrap:** Docker images are rebuilt, and `script/bootstrap-tls.sh` ensures SSL validity.
-5. **Container Boot:** `docker compose up -d` starts the system.
-6. **Health Check Polling Loop:** The deploy script continuously polls `docker inspect` to ensure `nginx` and `backend` reach a `healthy` state. It aborts if a container falls into a restarting loop.
-7. **Cron Installation:** `script/install-cron.sh` configures scheduled maintenance tasks.
-8. **Smoke Tests:** `script/smoke-test.sh` executes against the live host. It verifies the Nginx HTTP 200 response and tests backend connectivity via `/api/auth/login`.
-9. **Alerting:** Success or failure (with trailing logs) is broadcast to Telegram.
+Internal Docker traffic:
+
+```text
+nginx -> backend:8080
+backend -> database:5432
+prometheus -> backend:8080/actuator/prometheus
+prometheus -> node-exporter:9100
+prometheus -> cadvisor:8080
+prometheus -> postgres-exporter:9187
+postgres-exporter -> database:5432
+```
+
+Grafana Cloud does not connect inbound to EC2. Prometheus sends metrics outbound using HTTPS remote write.
+
+---
+
+## CI/CD Pipeline
+
+Workflow: `.github/workflows/deploy.yml`
+
+Triggered by:
+
+```text
+push to main
+```
+
+Pipeline stages:
+
+1. **Build and test**
+   - Starts temporary PostgreSQL service.
+   - Runs Maven verify and JaCoCo coverage.
+   - Runs SonarCloud scan with quality gate.
+   - Installs frontend dependencies and runs critical npm audit.
+
+2. **Build and push images**
+   - Builds backend Docker image.
+   - Builds frontend/Nginx Docker image.
+   - Runs Trivy scan on backend image.
+   - Pushes both images to GHCR with the Git SHA tag.
+
+3. **Deploy to EC2**
+   - SSH into EC2.
+   - Fetch/reset repo to `origin/main`.
+   - Write `.env` from GitHub Secrets.
+   - Append Grafana remote write secrets.
+   - Inject `BACKEND_IMAGE` and `FRONTEND_IMAGE`.
+   - Login to GHCR.
+   - `docker compose pull`.
+   - Bootstrap TLS certificates.
+   - `docker compose up -d`.
+   - Recreate Prometheus so `/tmp/prometheus.yml` is rendered from the latest template and secrets.
+   - Wait for backend and Nginx health.
+   - Install/update cron monitoring.
+   - Run smoke tests.
+   - Save `.last_successful_deploy`.
+   - Send Telegram success/failure notification.
+
+Important image flow:
+
+```text
+GitHub Actions pushes images to GHCR.
+EC2 pulls images from GHCR.
+EC2 does not build backend/frontend images in production.
+```
+
+---
+
+## Runtime Configuration
+
+GitHub Actions writes EC2 `.env` during deploy.
+
+Application secrets/config:
+
+| Variable | Purpose |
+|---|---|
+| `DB_URL`, `DB_USERNAME`, `DB_PASSWORD` | Spring Boot database connection |
+| `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD` | PostgreSQL container setup |
+| `JWT_SECRET` | JWT signing |
+| `ENCRYPTION_KEY` | Sensitive token encryption |
+| `ALLOWED_ORIGINS` | CORS origins |
+| `SPRING_PROFILES_ACTIVE` | Active Spring profile |
+| `PLAID_CLIENT_ID`, `PLAID_SECRET`, `PLAID_ENV`, `PLAID_WEBHOOK_URL` | Plaid integration |
+| `TLS_DOMAIN`, `LETSENCRYPT_EMAIL` | TLS automation |
+| `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` | Deploy/monitoring alerts |
+| `BACKEND_IMAGE`, `FRONTEND_IMAGE` | GHCR images pinned to Git SHA |
+
+Grafana remote write config:
+
+| Variable | Purpose |
+|---|---|
+| `GRAFANA_PROM_URL` | Grafana Cloud remote write URL ending in `/api/prom/push` |
+| `GRAFANA_PROM_USER` | Grafana Cloud metrics user/instance id |
+| `GRAFANA_PROM_PASS` | Grafana Cloud access token |
+
+Do not commit `.env`, Grafana tokens, rendered Prometheus configs, or Plaid secrets.
+
+---
+
+## Nginx and TLS
+
+Nginx responsibilities:
+
+- Listen on `80` and `443`.
+- Redirect HTTP to HTTPS.
+- Serve React static files.
+- Proxy `/api/*` to Spring Boot.
+- Proxy `/actuator/*` to Spring Boot.
+- Serve Let's Encrypt challenge files.
+- Apply security headers.
+
+TLS is handled through Certbot and mounted certificate volumes:
+
+```text
+certbot-etc
+certbot-www
+```
+
+`script/bootstrap-tls.sh` is idempotent:
+
+- Creates temporary self-signed certificates if needed so Nginx can start.
+- Requests real Let's Encrypt certificates.
+- Skips renewal if the current certificate is still valid enough.
+
+---
+
+## Prometheus and Grafana Cloud
+
+Prometheus uses a template config:
+
+```text
+monitoring/prometheus.yml
+```
+
+At container startup, `monitoring/prometheus-entrypoint.sh`:
+
+1. Requires `GRAFANA_PROM_URL`, `GRAFANA_PROM_USER`, `GRAFANA_PROM_PASS`.
+2. Renders the template into `/tmp/prometheus.yml`.
+3. Starts Prometheus with the rendered config.
+
+Prometheus scrape jobs:
+
+| Job | Target | Purpose |
+|---|---|---|
+| `prometheus` | `prometheus:9090` | Prometheus self metrics |
+| `spring-boot` | `backend:8080/actuator/prometheus` | JVM/API metrics |
+| `node-exporter` | `node-exporter:9100` | EC2 CPU/RAM/disk/network |
+| `cadvisor` | `cadvisor:8080` | Container CPU/RAM/network |
+| `postgres-exporter` | `postgres-exporter:9187` | PostgreSQL metrics |
+
+Remote write:
+
+```text
+Prometheus on EC2
+  -> HTTPS POST
+  -> Grafana Cloud /api/prom/push
+```
+
+Useful Grafana verification queries:
+
+```promql
+up
+up{job="spring-boot"}
+up{job="node-exporter"}
+up{job="cadvisor"}
+up{job="postgres-exporter"}
+up{job="prometheus"}
+jvm_memory_used_bytes
+pg_up
+container_memory_working_set_bytes
+```
 
 ---
 
 ## Monitoring and Self-Healing
 
-The `script/monitor.sh` runs every 5 minutes via cron (`/etc/cron.d/expense-monitor`) to guarantee system uptime.
+There are two monitoring layers.
 
-### Active Checks:
+### Script-based monitoring
 
-1. **Java Heartbeat & Logs:**
-   - Queries Spring Boot's `/actuator/health`. If the backend crashes or DB connection is lost, it instantly sends the last 30 error log lines to Telegram.
-2. **Container Crash Remediation:**
-   - Checks `docker compose ps` for failed containers and attempts auto-restart.
-   - **Restart Loop Guard:** If the backend restarts more than 3 times in a 5-minute window (`/tmp/backend_restart.lock`), it aborts auto-restart and sends a `CRITICAL` Telegram alert to prevent further damage.
-3. **Business Logic Monitoring (Plaid):**
-   - Directly queries the PostgreSQL `sync_logs` table. If any background Plaid syncs have failed in the last 15 minutes, it sends the specific `plaid_item_id` and error message to Telegram.
-4. **Disk Space Guard:**
-   - Alerts Telegram if disk usage hits 85%. At 95%, it triggers extreme auto-pruning.
-5. **SSL Tracking:**
-   - A daily cron invokes `monitor.sh --ssl-check`. It sends Telegram warnings 30 days and 7 days prior to Let's Encrypt expiration.
+`script/monitor.sh` runs via cron and handles:
+
+- Backend health checks.
+- Container crash remediation.
+- Restart loop guard.
+- Plaid sync failure checks through `sync_logs`.
+- Disk cleanup and disk pressure alerts.
+- SSL expiration tracking.
+- Telegram alerts.
+
+### Metrics-based monitoring
+
+Prometheus and Grafana Cloud handle:
+
+- EC2 CPU/RAM/swap/disk trend.
+- Container resource trend.
+- Spring Boot JVM and HTTP metrics.
+- PostgreSQL availability and database metrics.
+- Prometheus remote write health.
+- Grafana alert rules and dashboards.
+
+The script layer catches immediate operational failures. The Grafana layer provides trends, dashboards, and metric-based alerts.
 
 ---
 
-## Automated Maintenance
+## Common Operations
 
-To prevent EC2 disk exhaustion, a weekly cron job (Sundays at 4:00 AM) runs `monitor.sh --cleanup`:
+Check containers:
 
-- Automatically runs `docker system prune` and `docker container prune` targeting items older than 72 hours.
-- Truncates oversized log files (`>100MB`) in `/var/log` down to 50MB.
+```bash
+docker compose ps
+```
+
+Check backend logs:
+
+```bash
+docker compose logs backend --tail=100
+```
+
+Check Prometheus rendered config:
+
+```bash
+docker compose exec prometheus cat /tmp/prometheus.yml
+```
+
+Recreate Prometheus after monitoring config or Grafana secret changes:
+
+```bash
+docker compose up -d --no-deps --force-recreate prometheus
+```
+
+Check Prometheus logs:
+
+```bash
+docker compose logs prometheus --tail=100
+```
+
+Run smoke test:
+
+```bash
+./script/smoke-test.sh
+```
 
 ---
 
-## Troubleshooting
+## Known Hardening Notes
 
-### Common Issues
-
-| Problem | Likely Cause | Fix |
-|---------|--------------|-----|
-| `502 Bad Gateway` | Backend down or wrong proxy target | Check backend container logs and `proxy_pass` |
-| `Connection timeout` | Security Group or service not running | Check ports and service status |
-| `Permission denied` on SSH | Wrong key permissions | `chmod 400 key.pem` |
-| Low memory | t2.micro limits | Add swap or scale instance |
-| Plaid sync failing | Plaid credentials invalid | Check `.env` and `sync_logs` table via Telegram alerts |
-
-### Debug Order
-
-1. Check containers (`docker compose ps`)
-2. Check logs (`docker compose logs --tail=100 backend`)
-3. Check ports (`curl -I localhost`)
-4. Check Security Groups (AWS Console)
-5. Check DNS / Certificates (`openssl x509 -in ...`)
+- Nginx currently proxies `/actuator/*`; consider restricting `/actuator/prometheus` to internal Prometheus only.
+- PostgreSQL host port `5433` must remain blocked from public internet by AWS Security Group.
+- Trivy currently uses `exit-code: 0`; later phases can make critical vulnerabilities block deployment again.
+- Business Prometheus metrics and centralized logs are planned future work.

@@ -1,6 +1,7 @@
 package com.example.expense_tracking.dto;
 
 import com.example.expense_tracking.entity.TransactionType;
+import com.example.expense_tracking.entity.TransactionSource;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -31,4 +32,6 @@ public class TransactionResponse {
 
     // Transaction timestamp.
     private LocalDateTime transactionDate;
+
+    private TransactionSource source;
 }

@@ -36,6 +36,19 @@ public class TransactionService {
 
     @Transactional
     public TransactionResponse createTransaction(TransactionRequest request, User user) {
+        return createTransactionFromSource(request, user, TransactionSource.MANUAL_FORM, "MANUAL_" + UUID.randomUUID(),
+                null, null, null);
+    }
+
+    @Transactional
+    public TransactionResponse createTransactionFromSource(
+            TransactionRequest request,
+            User user,
+            TransactionSource source,
+            String sourceReference,
+            java.util.UUID importBatchId,
+            String originalInput,
+            BigDecimal parseConfidence) {
         LocalDateTime actualDate = request.getTransactionDate();
         if (actualDate == null) {
             actualDate = LocalDateTime.now();
@@ -65,8 +78,7 @@ public class TransactionService {
             }
         }
 
-        // Auto generate Manual ID
-        String manualId = "MANUAL_" + UUID.randomUUID();
+        String reference = sourceReference != null ? sourceReference : source.name() + "_" + UUID.randomUUID();
 
         Transaction transaction = Transaction.builder()
                 .user(user)
@@ -76,7 +88,12 @@ public class TransactionService {
                 .description(request.getDescription())
                 .transactionDate(actualDate)
                 .bankAccount(bankAccount)
-                .plaidTransactionId(manualId)
+                .plaidTransactionId(source == TransactionSource.PLAID ? reference : null)
+                .source(source)
+                .sourceReference(reference)
+                .importBatchId(importBatchId)
+                .originalInput(originalInput)
+                .parseConfidence(parseConfidence)
                 .build();
 
         Transaction saved = transactionRepository.save(transaction);
@@ -190,6 +207,7 @@ public class TransactionService {
                 .type(transaction.getType())
                 .description(transaction.getDescription())
                 .transactionDate(transaction.getTransactionDate())
+                .source(transaction.getSource())
                 .build();
     }
 
