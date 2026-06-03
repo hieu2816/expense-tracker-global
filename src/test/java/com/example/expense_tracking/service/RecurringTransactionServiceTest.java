@@ -143,6 +143,76 @@ class RecurringTransactionServiceTest {
         verify(recurringRepository).save(recurring);
     }
 
+    @Test
+    void updateRecurringChangesTemplateFrequencyDateAndActiveFlag() {
+        RecurringTransaction recurring = RecurringTransaction.builder()
+                .id(5L)
+                .user(user)
+                .template(template)
+                .frequency(RecurringFrequency.MONTHLY)
+                .nextRunDate(LocalDate.of(2026, 6, 1))
+                .active(true)
+                .build();
+        RecurringTransactionRequest request = new RecurringTransactionRequest();
+        request.setTemplateId(10L);
+        request.setFrequency(RecurringFrequency.YEARLY);
+        request.setNextRunDate(LocalDate.of(2027, 1, 1));
+        request.setActive(false);
+        when(recurringRepository.findByIdAndUser(5L, user)).thenReturn(Optional.of(recurring));
+        when(templateRepository.findByIdAndUser(10L, user)).thenReturn(Optional.of(template));
+        when(recurringRepository.save(recurring)).thenReturn(recurring);
+        when(templateService.mapToResponse(template)).thenReturn(templateResponse());
+
+        var response = recurringService.updateRecurring(5L, request, user);
+
+        assertEquals(RecurringFrequency.YEARLY, response.getFrequency());
+        assertEquals(LocalDate.of(2027, 1, 1), response.getNextRunDate());
+        assertFalse(response.getActive());
+    }
+
+    @Test
+    void deleteRecurringDeletesOwnedRule() {
+        RecurringTransaction recurring = RecurringTransaction.builder().id(5L).user(user).template(template).build();
+        when(recurringRepository.findByIdAndUser(5L, user)).thenReturn(Optional.of(recurring));
+
+        recurringService.deleteRecurring(5L, user);
+
+        verify(recurringRepository).delete(recurring);
+    }
+
+    @Test
+    void runDueRecurringTransactionsContinuesWhenOneRuleFails() {
+        RecurringTransaction broken = RecurringTransaction.builder()
+                .id(5L)
+                .user(user)
+                .template(template)
+                .frequency(RecurringFrequency.DAILY)
+                .nextRunDate(LocalDate.now())
+                .active(true)
+                .build();
+        RecurringTransaction yearly = RecurringTransaction.builder()
+                .id(6L)
+                .user(user)
+                .template(template)
+                .frequency(RecurringFrequency.YEARLY)
+                .nextRunDate(LocalDate.now())
+                .active(true)
+                .build();
+        when(recurringRepository.findByActiveTrueAndNextRunDateLessThanEqual(any(LocalDate.class)))
+                .thenReturn(List.of(broken, yearly));
+        when(transactionRepository.existsByUserAndSourceReference(eq(user), anyString()))
+                .thenReturn(false);
+        doThrow(new RuntimeException("boom")).doReturn(null)
+                .when(transactionService)
+                .createTransactionFromSource(any(), eq(user), eq(TransactionSource.RECURRING), anyString(),
+                        isNull(), isNull(), isNull());
+
+        recurringService.runDueRecurringTransactions();
+
+        assertEquals(LocalDate.now().plusYears(1), yearly.getNextRunDate());
+        verify(recurringRepository).save(yearly);
+    }
+
     private TransactionTemplateResponse templateResponse() {
         return TransactionTemplateResponse.builder()
                 .id(10L)

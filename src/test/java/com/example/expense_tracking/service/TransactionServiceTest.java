@@ -6,6 +6,7 @@ import com.example.expense_tracking.dto.TransactionResponse;
 import com.example.expense_tracking.entity.BankAccount;
 import com.example.expense_tracking.entity.Category;
 import com.example.expense_tracking.entity.Transaction;
+import com.example.expense_tracking.entity.TransactionSource;
 import com.example.expense_tracking.entity.TransactionType;
 import com.example.expense_tracking.entity.User;
 import com.example.expense_tracking.exception.ForbiddenException;
@@ -25,6 +26,7 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 
 import java.math.BigDecimal;
+import java.io.StringWriter;
 import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.Optional;
@@ -95,6 +97,57 @@ class TransactionServiceTest {
     }
 
     @Test
+    void createTransactionFromSourcePersistsSourceMetadataAndOwnedBank() {
+        TransactionRequest request = new TransactionRequest();
+        request.setAmount(new BigDecimal("25.00"));
+        request.setType(TransactionType.OUT);
+        request.setCategory("Food");
+        request.setDescription("plaid lunch");
+        request.setBankAccountId(1L);
+
+        when(categoryRepository.findByNameAndUser("Food", testUser)).thenReturn(Optional.of(testCategory));
+        when(bankAccountRepository.findById(1L)).thenReturn(Optional.of(testBankAccount));
+        when(transactionRepository.save(any(Transaction.class))).thenAnswer(invocation -> {
+            Transaction transaction = invocation.getArgument(0);
+            transaction.setId(44L);
+            return transaction;
+        });
+
+        TransactionResponse response = transactionService.createTransactionFromSource(request, testUser,
+                TransactionSource.PLAID, "PLAID_tx_1", null, "raw input", new BigDecimal("0.75"));
+
+        assertEquals(44L, response.getId());
+        assertEquals(TransactionSource.PLAID, response.getSource());
+        verify(transactionRepository).save(argThat(transaction ->
+                transaction.getBankAccount() == testBankAccount
+                        && "PLAID_tx_1".equals(transaction.getPlaidTransactionId())
+                        && "PLAID_tx_1".equals(transaction.getSourceReference())
+                        && "raw input".equals(transaction.getOriginalInput())
+                        && new BigDecimal("0.75").equals(transaction.getParseConfidence())
+        ));
+    }
+
+    @Test
+    void createTransactionFromSourceGeneratesReferenceWhenMissing() {
+        TransactionRequest request = new TransactionRequest();
+        request.setAmount(new BigDecimal("10.00"));
+        request.setType(TransactionType.OUT);
+        request.setCategory("Food");
+
+        when(categoryRepository.findByNameAndUser("Food", testUser)).thenReturn(Optional.of(testCategory));
+        when(transactionRepository.save(any(Transaction.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        transactionService.createTransactionFromSource(request, testUser, TransactionSource.CSV_IMPORT,
+                null, java.util.UUID.randomUUID(), null, null);
+
+        verify(transactionRepository).save(argThat(transaction ->
+                transaction.getSourceReference().startsWith("CSV_IMPORT_")
+                        && transaction.getPlaidTransactionId() == null
+                        && transaction.getTransactionDate() != null
+        ));
+    }
+
+    @Test
     void createTransaction_ForbiddenBank() {
         TransactionRequest request = new TransactionRequest();
         request.setAmount(new BigDecimal("50.00"));
@@ -148,5 +201,73 @@ class TransactionServiceTest {
         assertNotNull(response);
         assertEquals(new BigDecimal("150.00"), response.getAmount());
         verify(transactionRepository).save(any(Transaction.class));
+    }
+
+    @Test
+    void updateTransactionSwitchesToOwnedBankAndCreatesNewCategory() {
+        TransactionRequest request = new TransactionRequest();
+        request.setAmount(new BigDecimal("35.00"));
+        request.setType(TransactionType.OUT);
+        request.setCategory("Transport");
+        request.setBankAccountId(1L);
+        request.setTransactionDate(LocalDateTime.of(2026, 6, 4, 10, 0));
+
+        Category transport = Category.builder().id(2L).name("Transport").type(TransactionType.OUT).user(testUser).build();
+        when(transactionRepository.findById(1L)).thenReturn(Optional.of(testTransaction));
+        when(categoryRepository.findByNameAndUser("Transport", testUser)).thenReturn(Optional.empty());
+        when(categoryRepository.save(any(Category.class))).thenReturn(transport);
+        when(bankAccountRepository.findById(1L)).thenReturn(Optional.of(testBankAccount));
+        when(transactionRepository.save(any(Transaction.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        TransactionResponse response = transactionService.updateTransaction(1L, request, testUser);
+
+        assertEquals("Transport", response.getCategory().getName());
+        assertEquals(LocalDateTime.of(2026, 6, 4, 10, 0), response.getTransactionDate());
+        assertEquals(testBankAccount, testTransaction.getBankAccount());
+    }
+
+    @Test
+    void deleteTransactionRejectsDifferentOwner() {
+        User otherUser = User.builder().id(99L).build();
+        testTransaction.setUser(otherUser);
+        when(transactionRepository.findById(1L)).thenReturn(Optional.of(testTransaction));
+
+        assertThrows(ForbiddenException.class, () -> transactionService.deleteTransaction(1L, testUser));
+        verify(transactionRepository, never()).delete(any());
+    }
+
+    @Test
+    void getAllTransactionsMapsPagedResults() {
+        Page<Transaction> page = new PageImpl<>(Collections.singletonList(testTransaction));
+        when(transactionRepository.findFilteredTransactions(eq(testUser), eq("Food"), any(), any(), any(Pageable.class)))
+                .thenReturn(page);
+
+        Page<TransactionResponse> response = transactionService.getAllTransactions(testUser, 0, 10,
+                "Food", LocalDateTime.now().minusDays(1), LocalDateTime.now());
+
+        assertEquals(1, response.getTotalElements());
+        assertEquals("Food", response.getContent().getFirst().getCategory().getName());
+    }
+
+    @Test
+    void exportToCsvSanitizesDangerousValuesAndNullCategory() throws Exception {
+        Transaction dangerous = Transaction.builder()
+                .id(2L)
+                .user(testUser)
+                .category(null)
+                .amount(new BigDecimal("9.00"))
+                .type(TransactionType.OUT)
+                .description("=HYPERLINK()")
+                .transactionDate(LocalDateTime.of(2026, 6, 4, 8, 0))
+                .build();
+        when(transactionRepository.findFilteredTransactions(eq(testUser), isNull(), isNull(), isNull(), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(Collections.singletonList(dangerous)));
+
+        StringWriter writer = new StringWriter();
+        transactionService.exportToCsv(testUser, null, null, null, writer);
+
+        String csv = writer.toString();
+        assertTrue(csv.contains("Uncategorized"));
+        assertTrue(csv.contains("'=HYPERLINK()"));
     }
 }

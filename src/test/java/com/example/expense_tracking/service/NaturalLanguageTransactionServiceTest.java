@@ -95,4 +95,47 @@ class NaturalLanguageTransactionServiceTest {
                 isNull(), eq("lunch 12 today"), eq(new BigDecimal("0.80")));
         assertTrue(sourceReferenceCaptor.getValue().startsWith("NATURAL_LANGUAGE_EN_"));
     }
+
+    @Test
+    void parseMissingAmountDefaultsDateAndAddsWarning() {
+        NaturalLanguageParseRequest request = new NaturalLanguageParseRequest();
+        request.setText("mystery purchase");
+        when(categoryRuleService.findMatchingCategory(anyString(), eq(TransactionType.OUT), eq(user)))
+                .thenReturn(Optional.empty());
+
+        NaturalLanguageDraftResponse draft = naturalLanguageService.parse(request, user);
+
+        assertNull(draft.getAmount());
+        assertEquals(TransactionType.OUT, draft.getType());
+        assertEquals("Uncategorized", draft.getCategory());
+        assertTrue(draft.getWarnings().contains("Amount could not be parsed"));
+    }
+
+    @Test
+    void parseEnglishSupportsDateFormsAndSpendingCategories() {
+        NaturalLanguageParseRequest slashDate = new NaturalLanguageParseRequest();
+        slashDate.setText("coffee 4.50 06/03");
+        when(categoryRuleService.findMatchingCategory(anyString(), eq(TransactionType.OUT), eq(user)))
+                .thenReturn(Optional.empty());
+
+        NaturalLanguageDraftResponse draft = naturalLanguageService.parse(slashDate, user);
+
+        assertEquals("Food", draft.getCategory());
+        assertEquals(6, draft.getTransactionDate().getMonthValue());
+        assertEquals(3, draft.getTransactionDate().getDayOfMonth());
+    }
+
+    @Test
+    void parseEnglishSupportsOrdinalDateAndHealthCategory() {
+        NaturalLanguageParseRequest request = new NaturalLanguageParseRequest();
+        request.setText("pharmacy 20 on the 25th");
+        when(categoryRuleService.findMatchingCategory(anyString(), eq(TransactionType.OUT), eq(user)))
+                .thenReturn(Optional.empty());
+
+        NaturalLanguageDraftResponse draft = naturalLanguageService.parse(request, user);
+
+        assertEquals("Health", draft.getCategory());
+        assertEquals(25, draft.getTransactionDate().getDayOfMonth());
+        assertEquals("pharmacy", draft.getDescription());
+    }
 }

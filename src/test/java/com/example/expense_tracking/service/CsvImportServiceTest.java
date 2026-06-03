@@ -5,6 +5,7 @@ import com.example.expense_tracking.dto.CsvImportPreviewResponse;
 import com.example.expense_tracking.dto.CsvImportRequest;
 import com.example.expense_tracking.dto.CsvImportResultResponse;
 import com.example.expense_tracking.dto.TransactionRequest;
+import com.example.expense_tracking.entity.Category;
 import com.example.expense_tracking.entity.ImportBatch;
 import com.example.expense_tracking.entity.TransactionSource;
 import com.example.expense_tracking.entity.TransactionType;
@@ -20,6 +21,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -112,5 +114,69 @@ class CsvImportServiceTest {
         when(importBatchRepository.findByIdAndUser(any(), eq(user))).thenReturn(Optional.of(batch));
 
         assertTrue(csvImportService.getImportBatch(java.util.UUID.randomUUID(), user).isPresent());
+    }
+
+    @Test
+    void previewUsesCategoryRulesWhenCategoryColumnIsMissing() throws Exception {
+        CsvImportRequest ruleRequest = new CsvImportRequest();
+        ruleRequest.setFileName("statement.csv");
+        ruleRequest.setContent("""
+                date,description,amount
+                01/06/2026,uber ride,-15.00
+                """);
+        CsvColumnMapping mapping = new CsvColumnMapping();
+        mapping.setDate("date");
+        mapping.setDescription("description");
+        mapping.setAmount("amount");
+        ruleRequest.setMapping(mapping);
+        Category transport = Category.builder().name("Transport").type(TransactionType.OUT).user(user).build();
+        when(categoryRuleService.findMatchingCategory("uber ride", TransactionType.OUT, user))
+                .thenReturn(Optional.of(transport));
+        when(transactionRepository.existsByUserAndSourceReference(eq(user), anyString())).thenReturn(false);
+
+        CsvImportPreviewResponse preview = csvImportService.preview(ruleRequest, user);
+
+        assertEquals("Transport", preview.getRows().getFirst().getCategory());
+        assertEquals(TransactionType.OUT, preview.getRows().getFirst().getType());
+    }
+
+    @Test
+    void previewMarksDatabaseDuplicateAndParsesExplicitType() throws Exception {
+        CsvImportRequest duplicateRequest = new CsvImportRequest();
+        duplicateRequest.setFileName("statement.csv");
+        duplicateRequest.setContent("""
+                date,description,amount,type
+                2026-06-01,salary,2500,CREDIT
+                """);
+        CsvColumnMapping mapping = new CsvColumnMapping();
+        mapping.setDate("date");
+        mapping.setDescription("description");
+        mapping.setAmount("amount");
+        mapping.setType("type");
+        duplicateRequest.setMapping(mapping);
+        when(transactionRepository.existsByUserAndSourceReference(eq(user), anyString())).thenReturn(true);
+        when(categoryRuleService.findMatchingCategory("salary", TransactionType.IN, user)).thenReturn(Optional.empty());
+
+        CsvImportPreviewResponse preview = csvImportService.preview(duplicateRequest, user);
+
+        assertEquals(0, preview.getValidRows());
+        assertEquals(1, preview.getDuplicateRows());
+        assertEquals(TransactionType.IN, preview.getRows().getFirst().getType());
+        assertEquals("Imported", preview.getRows().getFirst().getCategory());
+    }
+
+    @Test
+    void getImportHistoryMapsBatches() {
+        ImportBatch batch = ImportBatch.builder()
+                .fileName("statement.csv")
+                .source(TransactionSource.CSV_IMPORT)
+                .totalRows(2)
+                .importedRows(2)
+                .duplicateRows(0)
+                .invalidRows(0)
+                .build();
+        when(importBatchRepository.findTop20ByUserOrderByCreatedAtDesc(user)).thenReturn(List.of(batch));
+
+        assertEquals(1, csvImportService.getImportHistory(user).size());
     }
 }

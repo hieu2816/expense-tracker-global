@@ -99,4 +99,49 @@ class TransactionTemplateServiceTest {
         assertEquals(new BigDecimal("12.00"), requestCaptor.getValue().getAmount());
         assertTrue(sourceReferenceCaptor.getValue().startsWith("TEMPLATE_9_"));
     }
+
+    @Test
+    void updateTemplateChangesFieldsAndCreatesCategory() {
+        TransactionTemplate template = TransactionTemplate.builder()
+                .id(9L)
+                .name("Old")
+                .amount(new BigDecimal("5.00"))
+                .type(TransactionType.OUT)
+                .category(food)
+                .user(user)
+                .currency("GBP")
+                .active(true)
+                .build();
+        Category transport = Category.builder().id(3L).name("Transport").type(TransactionType.OUT).user(user).build();
+        TransactionTemplateRequest request = new TransactionTemplateRequest();
+        request.setName("Commute");
+        request.setDescription("daily commute");
+        request.setAmount(new BigDecimal("6.50"));
+        request.setType(TransactionType.OUT);
+        request.setCategory("Transport");
+        request.setCurrency("USD");
+        request.setActive(false);
+
+        when(templateRepository.findByIdAndUser(9L, user)).thenReturn(Optional.of(template));
+        when(categoryRepository.findByNameAndUser("Transport", user)).thenReturn(Optional.empty());
+        when(categoryRepository.save(any(Category.class))).thenReturn(transport);
+        when(templateRepository.save(any(TransactionTemplate.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        TransactionTemplateResponse response = templateService.updateTemplate(9L, request, user);
+
+        assertEquals("Commute", response.getName());
+        assertEquals("Transport", response.getCategory().getName());
+        assertEquals("USD", response.getCurrency());
+        assertFalse(response.getActive());
+    }
+
+    @Test
+    void deleteTemplateDeletesOwnedTemplate() {
+        TransactionTemplate template = TransactionTemplate.builder().id(9L).user(user).category(food).build();
+        when(templateRepository.findByIdAndUser(9L, user)).thenReturn(Optional.of(template));
+
+        templateService.deleteTemplate(9L, user);
+
+        verify(templateRepository).delete(template);
+    }
 }
