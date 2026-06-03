@@ -34,7 +34,8 @@
 			src/main/java/com/example/expense_tracking/config/**,
 			src/main/java/com/example/expense_tracking/exception/**,
 			src/main/java/com/example/expense_tracking/utils/**,
-			src/main/java/com/example/expense_tracking/ExpenseTrackingGlobalApplication.java
+			src/main/java/com/example/expense_tracking/ExpenseTrackingGlobalApplication.java,
+			frontend/**
 		</sonar.coverage.exclusions>
 	</properties>
 	<dependencies>
