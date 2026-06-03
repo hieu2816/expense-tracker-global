@@ -16,10 +16,19 @@ set -e
 # --- Config ---
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
+ENV_FILE="$PROJECT_DIR/.env"
 LOG_FILE="/var/log/monitor.log"
 RESTART_LOCK_FILE="/tmp/backend_restart.lock"
 MAX_RESTARTS=3
 RESTART_WINDOW=300          # 5-minute window
+
+if [[ -f "$ENV_FILE" ]]; then
+    set -a
+    # shellcheck disable=SC1090
+    source "$ENV_FILE"
+    set +a
+fi
+
 TELEGRAM_BOT_TOKEN="${TELEGRAM_BOT_TOKEN:-}"
 TELEGRAM_CHAT_ID="${TELEGRAM_CHAT_ID:-}"
 DOMAIN="${TLS_DOMAIN:-spendwiser.me}"
@@ -76,6 +85,12 @@ record_restart() {
     touch "$RESTART_LOCK_FILE"
 }
 
+refresh_nginx_after_backend_restart() {
+    log "Refreshing nginx after backend restart..."
+    docker compose restart nginx
+    sleep 5
+}
+
 # --- Disk space monitoring ---
 check_disk() {
     local disk_usage=$(df / | awk 'NR==2 {print $5}' | tr -d '%')
@@ -106,6 +121,7 @@ check_containers() {
                 docker compose restart backend
                 record_restart
                 sleep 15
+                refresh_nginx_after_backend_restart
                 # Verify it stayed up
                 local backend_health
                 backend_health=$(docker inspect --format='{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' expense-backend 2>/dev/null || echo "unknown")
@@ -138,6 +154,8 @@ check_backend_health() {
           log "Attempting to restart backend due to failed health check..."
           docker compose restart backend
           record_restart
+          sleep 15
+          refresh_nginx_after_backend_restart
         fi
         return 1
     fi

@@ -11,10 +11,10 @@ SHELL=/bin/bash
 PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
 
 # Core monitoring + self-healing (every minute)
-* * * * * root . /home/ubuntu/expense-tracker-global/.env && /bin/bash /home/ubuntu/expense-tracker-global/script/monitor.sh >> /var/log/monitor_cron.log 2>&1
+* * * * * root set -a && . /home/ubuntu/expense-tracker-global/.env && set +a && /bin/bash /home/ubuntu/expense-tracker-global/script/monitor.sh >> /var/log/monitor_cron.log 2>&1
 
 # SSL certificate expiry check (daily at 3am)
-0 3 * * * root . /home/ubuntu/expense-tracker-global/.env && /bin/bash /home/ubuntu/expense-tracker-global/script/monitor.sh --ssl-check >> /var/log/ssl_check.log 2>&1
+0 3 * * * root set -a && . /home/ubuntu/expense-tracker-global/.env && set +a && /bin/bash /home/ubuntu/expense-tracker-global/script/monitor.sh --ssl-check >> /var/log/ssl_check.log 2>&1
 
 # Disk cleanup — prune old Docker images and truncate large logs (weekly Sunday at 4am)
-0 4 * * 0 root . /home/ubuntu/expense-tracker-global/.env && /bin/bash /home/ubuntu/expense-tracker-global/script/monitor.sh --cleanup >> /var/log/cleanup.log 2>&1
+0 4 * * 0 root set -a && . /home/ubuntu/expense-tracker-global/.env && set +a && /bin/bash /home/ubuntu/expense-tracker-global/script/monitor.sh --cleanup >> /var/log/cleanup.log 2>&1
